@@ -85,7 +85,7 @@ public:
 	Pose palm_position;
 
 	int paramsSize;
-	Mat params;
+	Mat paramsOfhand;
 
 	struct CostFunction
 	{
@@ -104,6 +104,7 @@ public:
 		vector<float> renderToGroundtruthMinDistance;
 		vector<float> groundtruthTorenderMinDistance;
 		float distance_renderTogroundtruth;
+		float distance_groundtruthTorender;
 		cv::Mat groundtruthmat = cv::Mat::zeros(240, 320, CV_16UC1);
 		vector<Point> groundtruth_silhouette;
 		
@@ -167,19 +168,15 @@ public:
 
 			int index_render = -1;
 			double area, maxArea(0);
-			cout << " init Max area is" << maxArea << endl;
-			cout << "size is :" << contours_rendered_Silhouette.size() << endl;
 			for (int i = 0; i < contours_rendered_Silhouette.size(); i++)
 			{
 				area = contourArea(Mat(contours_rendered_Silhouette[i]));
-				cout << area << endl;
 				if(area > maxArea){
 					maxArea = area;
 					index_render = i;
 				}
 			}
 			
-			cout << "end max area is :" << maxArea<<endl;
 			/*cv::Ptr <cv::HausdorffDistanceExtractor> hausdorff_ptr = cv::createHausdorffDistanceExtractor();
 			float distance = hausdorff_ptr->computeDistance(contours_rendered_Silhouette[index_render], contours_groundtruth_Silhouette[index_groundthuth]);*/
 
@@ -220,7 +217,7 @@ public:
 
 			kdtree2.knnSearch(sourse, indices2, dists2, k2, cv::flann::SearchParams(32));
 
-			float distance_groundtruthTorender = 0;
+			distance_groundtruthTorender = 0;
 
 			for (int i = 0; i < dists2.rows; i++)
 			{
@@ -239,7 +236,7 @@ public:
 		{
 			
 			this->costfunction = weight1*_cloudpoint.SumDistance / _cloudpoint.num_cloudpoint + weight2*ComputeSilhouetteDifference(rendered_Silhouette, groundtruth_Silhouette);
-			cout << "cloud :" << _cloudpoint.SumDistance / _cloudpoint.num_cloudpoint << "   silhuuette : " << ComputeSilhouetteDifference(rendered_Silhouette, groundtruth_Silhouette) << endl;
+			//cout << "cloud :" << _cloudpoint.SumDistance / _cloudpoint.num_cloudpoint << "   silhuuette : " << ComputeSilhouetteDifference(rendered_Silhouette, groundtruth_Silhouette) << endl;
 			return this->costfunction;
 		}
 
@@ -251,7 +248,7 @@ public:
 		this->palm_position.y = 0;
 		this->paramsSize = 24;
 		this->palm_position.z = -800; 
-		this->params = cv::Mat(this->paramsSize, 1, CV_64F);
+		this->paramsOfhand = cv::Mat(this->paramsSize, 1, CV_32F);
 		this->ParamsToMat();
 	}
 	~HandControl() { delete this->fingers; }
@@ -347,6 +344,8 @@ public:
 		this->SetFingers(random_fingers);
 
 
+		this->ParamsToMat();
+
 	}
 	void RandomScaleAndTransParams()
 	{
@@ -401,6 +400,8 @@ public:
 		}
 		this->SetFingers(random_fingers);
 
+
+		this->ParamsToMat();
 		
 	}
 
@@ -430,56 +431,55 @@ public:
 	}
 	void ParamsChangeUseGaussNewTon()
 	{
-
-		Mat r_cloudPoint(_cloudpoint.num_cloudpoint, 1, CV_64F); // residual matrix  
-		Mat r_silhouette(_costfunction.groundtruth_silhouetteSize,1,CV_64F);
-		Mat r_3(1, 1, CV_64F);
+		//这里注意 创建Mat的时候是CV_32F， 则.at<float>这里用float，如果是CV_64F ，则必须用double，不然会出错
+		Mat r_cloudPoint(_cloudpoint.num_cloudpoint, 1, CV_32F); // residual matrix  
+		Mat r_silhouette(_costfunction.groundtruth_silhouetteSize,1,CV_32F);
+		Mat r_3(1, 1, CV_32F);
 		this->ComputeResidual(r_cloudPoint, r_silhouette,r_3);
 
 
-		Mat Jf_cloudpoint(_cloudpoint.num_cloudpoint, this->paramsSize, CV_64F); // Jacobian of Func()  
-		Mat Jf_silhouette(_costfunction.groundtruth_silhouetteSize, this->paramsSize, CV_64F); // Jacobian of Func()  
-		Mat Jf_3(1, this->paramsSize, CV_64F);// Jacobian of Func()  
-		Mat E(this->paramsSize, this->paramsSize, CV_64F);
-		for (int i = 0; i < this->paramsSize; i++)
-		{
-			E.at<float>(i, i) = 1;
-		}
+		Mat Jf_cloudpoint(_cloudpoint.num_cloudpoint, this->paramsSize, CV_32F); // Jacobian of Func()  
+		Mat Jf_silhouette(_costfunction.groundtruth_silhouetteSize, this->paramsSize, CV_32F); // Jacobian of Func()  
+		Mat Jf_3(1, this->paramsSize, CV_32F);// Jacobian of Func()  
+		Mat E = cv::Mat::eye(this->paramsSize, this->paramsSize, CV_32F);
+
 		for (int i = 0; i < Jf_cloudpoint.cols; i++)
 		{
-			Mat r_cloud_1(_cloudpoint.num_cloudpoint, 1, CV_64F);
-			Mat r_cloud_2(_cloudpoint.num_cloudpoint, 1, CV_64F);
+			Mat r_cloud_1(_cloudpoint.num_cloudpoint, 1, CV_32F);
+			Mat r_cloud_2(_cloudpoint.num_cloudpoint, 1, CV_32F);
 			this->ComputeCloudPointJacobian(r_cloud_1, r_cloud_2, i);
 
 			for (int j = 0; j < Jf_cloudpoint.rows; j++)
 			{
 				//cout << r_cloud_2.at<float>(j, 0) << endl;
-				Jf_cloudpoint.at<float>(j, i) = r_cloud_2.at<float>(j, 0) /_cloudpoint.num_cloudpoint;
+				Jf_cloudpoint.at<float>(j, i) = r_cloud_2.at<float>(j, 0) / _cloudpoint.num_cloudpoint;
 			}
 
 		}
 
-		//for (int i = 0; i < Jf_silhouette.cols; i++)
-		//{
-		//	Mat r_silh_1(_costfunction.groundtruth_silhouetteSize, 1, CV_64F);
-		//	Mat r_silh_2(_costfunction.groundtruth_silhouetteSize, 1, CV_64F);
-		//	this->ComputeSilhouetteJacobian(r_silh_1, r_silh_2, i);
+		for (int i = 0; i < Jf_silhouette.cols; i++)
+		{
+			Mat r_silh_1(_costfunction.groundtruth_silhouetteSize, 1, CV_32F);
+			Mat r_silh_2(_costfunction.groundtruth_silhouetteSize, 1, CV_32F);
+			this->ComputeSilhouetteJacobian(r_silh_1, r_silh_2, i);
 
-		//	for (int j = 0; j < Jf_silhouette.rows; j++)
-		//	{
-		//		Jf_silhouette.at<float>(j, i) = r_silh_2.at<float>(j, 0) /_costfunction.groundtruth_silhouetteSize;
-		//	}
+			for (int j = 0; j < Jf_silhouette.rows; j++)
+			{
+				Jf_silhouette.at<float>(j, i) = r_silh_2.at<float>(j, 0) /_costfunction.groundtruth_silhouetteSize;
+			}
 
-		//}
+		}
 
-		//for (int i = 0; i < Jf_3.cols; i++)
-		//{
-		//	Jf_3.at<float>(0, i) = this->ComputeJ_3(i);
-		//}
+		for (int i = 0; i < Jf_3.cols; i++)
+		{
+			Jf_3.at<float>(0, i) = this->ComputeJ_3(i);
+		}
 
 		//Mat delta = ((Jf_cloudpoint.t()*Jf_cloudpoint) + (Jf_silhouette.t()*Jf_silhouette) + (Jf_3.t()*Jf_3)).inv() * ((Jf_cloudpoint.t()*r_cloudPoint) + (Jf_silhouette.t()*r_silhouette) + (Jf_3.t()*r_3));
-		Mat delta = (Jf_cloudpoint.t()*Jf_cloudpoint).inv()*(Jf_cloudpoint.t()*r_cloudPoint);
-		params += delta;
+		Mat delta = ((Jf_cloudpoint.t()*Jf_cloudpoint) + (Jf_silhouette.t()*Jf_silhouette)).inv() * ((Jf_cloudpoint.t()*r_cloudPoint) + (Jf_silhouette.t()*r_silhouette));
+		//Mat delta = (Jf_cloudpoint.t()*Jf_cloudpoint).inv()*(Jf_cloudpoint.t()*r_cloudPoint);
+		//Mat delta = ((Jf_3.t()*Jf_3)).inv() * ((Jf_3.t()*r_3));
+		this->paramsOfhand = this->paramsOfhand + delta;
 		this->MatToParams();
 
 		this->LimitedPalmScale();
@@ -487,10 +487,12 @@ public:
 		this->LimitedfingerLength();
 		cout << endl;
 		cout << "PARAMS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
-		cout << "the paras Mat is :  " << params << endl;
+		cout << "the paras Mat is :  " << paramsOfhand << endl;
 		cout << "end PARAMS ." << endl;
+		cout << endl;
 		this->ControlHand();
 	}
+
 
 	//存储和读出参数
 	void SaveParams(char* filename){
@@ -546,7 +548,7 @@ public:
 			}
 		}
 		this->SetFingers(read_fingers);
-
+		this->ParamsToMat();
 		f.close();
 	}
 
@@ -761,20 +763,21 @@ public:
 		r_3.at<float>(0, 0) = _costfunction.distance_renderTogroundtruth;
 		for (int i = 0; i < r_sil.rows; i++)
 		{
-			r_sil.at<float>(i, 0) = _costfunction.groundtruthTorenderMinDistance[i]/_costfunction.groundtruth_silhouetteSize;
+			r_sil.at<float>(i, 0) = 0.5*_costfunction.groundtruthTorenderMinDistance[i]/_costfunction.groundtruth_silhouetteSize;
 		}
 		for (int i = 0; i < r_cloud.rows; i++)
 		{
-			r_cloud.at<float>(i, 0) = _cloudpoint.cloudpointTomesh_minDistance[i]/_cloudpoint.num_cloudpoint;
+			r_cloud.at<float>(i, 0) = 0.5*_cloudpoint.cloudpointTomesh_minDistance[i]/_cloudpoint.num_cloudpoint;
 		}
 
 	}
 	void ComputeCloudPointJacobian(Mat &m1,Mat &m2,int index)
 	{
-		float save = this->params.at<float>(index, 0);
+		this->ParamsToMat();
+		float save = this->paramsOfhand.at<float>(index, 0);
 		if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20) || (index == 24))
 		{
-			this->params.at<float>(index, 0) = save + 0.1;
+			this->paramsOfhand.at<float>(index, 0) = save + 0.1;
 			this->MatToParams();
 			this->ControlHand();
 			SS::SubdivisionTheHand(model, 0);
@@ -784,7 +787,7 @@ public:
 				m1.at<float>(i,0) = _cloudpoint.cloudpointTomesh_minDistance[i];
 			}
 
-			this->params.at<float>(index, 0) = save - 0.1;
+			this->paramsOfhand.at<float>(index, 0) = save - 0.1;
 			this->MatToParams();
 			this->ControlHand();
 			SS::SubdivisionTheHand(model, 0);
@@ -793,12 +796,12 @@ public:
 			{
 				m2.at<float>(i, 0) = (m1.at<float>(i,0) -_cloudpoint.cloudpointTomesh_minDistance[i])/0.2;
 			}
-			this->params.at<float>(index, 0) = save;
-			this->MatToParams();
+			this->paramsOfhand.at<float>(index, 0) = save;
+			
 		}
 		else
 		{
-			this->params.at<float>(index, 0) = save + 1;
+			this->paramsOfhand.at<float>(index, 0) = save + 1;
 			this->MatToParams();
 			this->ControlHand();
 			SS::SubdivisionTheHand(model, 0);
@@ -808,7 +811,7 @@ public:
 				m1.at<float>(i, 0) = _cloudpoint.cloudpointTomesh_minDistance[i];
 			}
 
-			this->params.at<float>(index, 0) = save - 1;
+			this->paramsOfhand.at<float>(index, 0) = save - 1;
 			this->MatToParams();
 			this->ControlHand();
 			SS::SubdivisionTheHand(model, 0);
@@ -817,18 +820,18 @@ public:
 			{
 				m2.at<float>(i, 0) = (m1.at<float>(i, 0) - _cloudpoint.cloudpointTomesh_minDistance[i]) / 2.0;
 			}
-			this->params.at<float>(index, 0) = save;
-			this->MatToParams();
+			this->paramsOfhand.at<float>(index, 0) = save;
+			
 		}
+		this->MatToParams();
 	}
 	void ComputeSilhouetteJacobian(Mat &m1,Mat &m2,int index)
 	{
-		cout << "Compute Silhouette Jacobian~~~~~~~~~~~~~~~~~~" << endl;
-		cout << "the index is :  " << index << endl;
-		float save = this->params.at<float>(index, 0);
+		this->ParamsToMat();
+		float save = this->paramsOfhand.at<float>(index, 0);
 		if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20))
 		{
-			this->params.at<float>(index, 0) = save + 0.1;
+			this->paramsOfhand.at<float>(index, 0) = save + 0.1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -841,7 +844,7 @@ public:
 				m1.at<float>(i, 0) = _costfunction.groundtruthTorenderMinDistance[i];
 			}
 
-			this->params.at<float>(index, 0) = save - 0.1;
+			this->paramsOfhand.at<float>(index, 0) = save - 0.1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -853,12 +856,11 @@ public:
 			{
 				m2.at<float>(i, 0) = (m1.at<float>(i, 0) - _costfunction.groundtruthTorenderMinDistance[i]) / 0.2;
 			}
-			this->params.at<float>(index, 0) = save;
-			this->MatToParams();
+			this->paramsOfhand.at<float>(index, 0) = save;
 		}
 		else
 		{
-			this->params.at<float>(index, 0) = save + 1;
+			this->paramsOfhand.at<float>(index, 0) = save + 1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -871,7 +873,7 @@ public:
 				m1.at<float>(i, 0) = _costfunction.groundtruthTorenderMinDistance[i];
 			}
 
-			this->params.at<float>(index, 0) = save - 1;
+			this->paramsOfhand.at<float>(index, 0) = save - 1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -883,22 +885,19 @@ public:
 			{
 				m2.at<float>(i, 0) = (m1.at<float>(i, 0) - _costfunction.groundtruthTorenderMinDistance[i]) / 2.0;
 			}
-			this->params.at<float>(index, 0) = save;
-			this->MatToParams();
+			this->paramsOfhand.at<float>(index, 0) = save;
+			
 		}
-
-
-		cout << "end   Compute Silhouette Jacobian~~~~~~~~~~~~~~~~~~" << endl;
+		this->MatToParams();
 	}
 	float ComputeJ_3(int index)
 	{
-		cout << "Compute J_3 Jacobian~~~~~~~~~~~~~~~~~~" << endl;
-		cout << "the index is :  " << index << endl;
+		this->ParamsToMat();
 		float gradient1, gradient2,gradient = 0;
-		float save = this->params.at<float>(index, 0);
+		float save = this->paramsOfhand.at<float>(index, 0);
 		if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20))
 		{
-			this->params.at<float>(index, 0) = save + 0.1;
+			this->paramsOfhand.at<float>(index, 0) = save + 0.1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -908,7 +907,7 @@ public:
 			gradient1 = _costfunction.distance_renderTogroundtruth;
 
 
-			this->params.at<float>(index, 0) = save - 0.1;
+			this->paramsOfhand.at<float>(index, 0) = save - 0.1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -918,12 +917,11 @@ public:
 			gradient2 = _costfunction.distance_renderTogroundtruth;
 			gradient = (gradient1 - gradient2) / 0.2;
 
-			this->params.at<float>(index, 0) = save;
-			this->MatToParams();
+			this->paramsOfhand.at<float>(index, 0) = save;
 		}
 		else
 		{
-			this->params.at<float>(index, 0) = save + 1;
+			this->paramsOfhand.at<float>(index, 0) = save + 1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -933,7 +931,7 @@ public:
 			gradient1 = _costfunction.distance_renderTogroundtruth;
 
 
-			this->params.at<float>(index, 0) = save - 1;
+			this->paramsOfhand.at<float>(index, 0) = save - 1;
 			this->MatToParams();
 			this->ControlHand();
 			cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
@@ -943,12 +941,12 @@ public:
 			gradient2 = _costfunction.distance_renderTogroundtruth;
 			gradient = (gradient1 - gradient2) / 2;
 
-			this->params.at<float>(index, 0) = save;
-			this->MatToParams();
+			this->paramsOfhand.at<float>(index, 0) = save;
 		}
-		cout << "end   Compute J_3 Jacobian~~~~~~~~~~~~~~~~~~" << endl;
+		this->MatToParams();
 		return gradient;
 	}
+
 
 	//设置（手指，手掌）大小，位置，长度的边界，如果调整超过边界，则进行约束
 	void LimitedPalmScale()
@@ -1008,32 +1006,32 @@ public:
 	//改变参数存储形式
 	void ParamsToMat()
 	{
-		this->params.at<float>(0, 0) = this->palm.Getplamscale();
-		this->params.at<float>(1, 0) = this->palm_position.x;
-		this->params.at<float>(2, 0) = this->palm_position.y;
-		this->params.at<float>(3, 0) = this->palm_position.z;
+		this->paramsOfhand.at<float>(0, 0) = this->palm.Getplamscale();
+		this->paramsOfhand.at<float>(1, 0) = this->palm_position.x;
+		this->paramsOfhand.at<float>(2, 0) = this->palm_position.y;
+		this->paramsOfhand.at<float>(3, 0) = this->palm_position.z;
 
 		for (int i = 0; i < 5; i++)
 		{
-			this->params.at<float>(3 + i*4 + 1,0) = this->fingers[i].Getfingerscale();
-			this->params.at<float>(3 + i*4 + 2,0) = this->fingers[i].GetTrans()[0].GettransX();
-			this->params.at<float>(3 + i * 4 + 3,0) = this->fingers[i].GetTrans()[1].GettransX();
-			this->params.at<float>(3 + i * 4 + 4,0) = this->fingers[i].GetTrans()[2].GettransX();
+			this->paramsOfhand.at<float>(3 + i*4 + 1,0) = this->fingers[i].Getfingerscale();
+			this->paramsOfhand.at<float>(3 + i*4 + 2,0) = this->fingers[i].GetTrans()[0].GettransX();
+			this->paramsOfhand.at<float>(3 + i * 4 + 3,0) = this->fingers[i].GetTrans()[1].GettransX();
+			this->paramsOfhand.at<float>(3 + i * 4 + 4,0) = this->fingers[i].GetTrans()[2].GettransX();
 		}
 	}
 	void MatToParams()
 	{
-		this->palm.Setpalmscale(this->params.at<float>(0, 0));
-		this->palm_position.x = this->params.at<float>(1, 0);
-		this->palm_position.y = this->params.at<float>(2, 0);
-		this->palm_position.z = this->params.at<float>(3, 0);
+		this->palm.Setpalmscale(this->paramsOfhand.at<float>(0, 0));
+		this->palm_position.x = this->paramsOfhand.at<float>(1, 0);
+		this->palm_position.y = this->paramsOfhand.at<float>(2, 0);
+		this->palm_position.z = this->paramsOfhand.at<float>(3, 0);
 
 		for (int i = 0; i < 5; i++)
 		{
-			this->fingers[i].Setfingerscale(this->params.at<float>(3 + i * 4 + 1, 0));
-			this->fingers[i].SetTrans(this->params.at<float>(3 + i * 4 + 2, 0), 0);
-			this->fingers[i].SetTrans(this->params.at<float>(3 + i * 4 + 3, 0), 1);
-			this->fingers[i].SetTrans(this->params.at<float>(3 + i * 4 + 4, 0), 2);
+			this->fingers[i].Setfingerscale(this->paramsOfhand.at<float>(3 + i * 4 + 1, 0));
+			this->fingers[i].SetTrans(this->paramsOfhand.at<float>(3 + i * 4 + 2, 0), 0);
+			this->fingers[i].SetTrans(this->paramsOfhand.at<float>(3 + i * 4 + 3, 0), 1);
+			this->fingers[i].SetTrans(this->paramsOfhand.at<float>(3 + i * 4 + 4, 0), 2);
 		}
 	}
 };

@@ -40,7 +40,7 @@ void main(int argc, char** argv) {
 
 	cv::Mat generated_mat = generate_depthMap(model, projection);
 	_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
-	MixShowResult(generated_mat, _handcontrol->_costfunction.groundtruthmat);
+	MixShowResult(_handcontrol->_costfunction.groundtruthmat, generated_mat);
 
 	//ÓÃÓÚopenglÏÔÊ¾
 	_data.init(SS::disVertices.size(), SS::disPatches.size());

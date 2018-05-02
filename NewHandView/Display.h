@@ -14,6 +14,7 @@ class HandControl;
 void MixShowResult(cv::Mat input1, cv::Mat input2);
 namespace DS
 {
+	int i = 0;
 	struct {
 		cv::Point3f eye;
 		cv::Point3f center;
@@ -385,7 +386,7 @@ namespace DS
 			MixShowResult(_handcontrol->_costfunction.groundtruthmat, generated_mat);
 
 			_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
-			cout << "costfuntion is :" << _handcontrol->_costfunction.costfunction << endl;
+			cout << "The "<<++i<<" th change !  The costfuntion is :" << _handcontrol->_costfunction.costfunction << endl;
 			_data.init(SS::disVertices.size(), SS::disPatches.size());
 			_data.SS_set(SS::disVertices, SS::disPatches);
 			_data.set_skeleton(model);

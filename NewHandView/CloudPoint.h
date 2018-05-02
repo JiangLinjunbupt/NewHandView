@@ -159,7 +159,7 @@ struct CloudPoint {
 
 		for (int i = 0; i < dists.rows; i++)
 		{
-			this->SumDistance = this->SumDistance + sqrt(dists.at<float>(i, 0));
+			this->SumDistance = this->SumDistance + dists.at<float>(i, 0);
 			cloudpointTomesh_minDistance[i] = sqrt(dists.at<float>(i, 0));
 			cloudpointTomesh_inscribePoint[i * 3] = SS::disVertices[indices.at<int>(i,0)].position.x;
 			cloudpointTomesh_inscribePoint[i * 3 + 1] = SS::disVertices[indices.at<int>(i, 0)].position.y;
