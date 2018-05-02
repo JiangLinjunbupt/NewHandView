@@ -7,13 +7,13 @@
 #include "CloudPoint.h"
 #include "Projection.h"
 #include "HandControl.h"
+
 using namespace cv;
 
+class HandControl;
 void MixShowResult(cv::Mat input1, cv::Mat input2);
 namespace DS
 {
-	cv::Mat groundtruthmat;
-
 	struct {
 		cv::Point3f eye;
 		cv::Point3f center;
@@ -21,8 +21,6 @@ namespace DS
 	}cameraPos;
 
 	void moveMeFlat(bool isHorizontal, int step) {
-
-
 
 		cv::Point3f lookAt = cameraPos.center - cameraPos.eye;
 		cv::Point3f direction;
@@ -368,27 +366,35 @@ namespace DS
 	void idle() {
 
         //neet to edit 如何调整手部参数
-		//??????
-		//
-		handcontrol.fingers[0].SetTrans(50, 2);
+		if (_handcontrol->_costfunction.costfunction > _handcontrol->_costfunction.T)
+		{
+			/*_handcontrol->ComputeGradient();
+			_handcontrol->ParamsChangeUseGradient();*/
 
 
-		handcontrol.ControlHand();
-		model->forward_kinematic();
-		model->compute_mesh();
+			_handcontrol->ParamsChangeUseGaussNewTon();
 
-		SS::SubdivisionTheHand(model, 0);
+			_handcontrol->ControlHand();
 
-		cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);;
-		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat);
-		
-		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+			SS::SubdivisionTheHand(model, 0);
+			_cloudpoint.Compute_Cloud_to_Mesh_Distance();
 
-		_data.init(SS::disVertices.size(), SS::disPatches.size());
-		_data.SS_set(SS::disVertices, SS::disPatches);
-		_data.set_skeleton(model);
-		MixShowResult(groundtruthmat, generated_mat);
+			cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+			projection->compute_current_orientation(model);
+			projection->project_3d_to_2d_(model, generated_mat);
+			MixShowResult(_handcontrol->_costfunction.groundtruthmat, generated_mat);
+
+			_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
+			cout << "costfuntion is :" << _handcontrol->_costfunction.costfunction << endl;
+			_data.init(SS::disVertices.size(), SS::disPatches.size());
+			_data.SS_set(SS::disVertices, SS::disPatches);
+			_data.set_skeleton(model);
+			
+		}
+		else
+		{
+			cout << "the costfunction meet the threshold, optimizing over ! ";
+		}
 		glutPostRedisplay();
 	}
 
@@ -414,7 +420,7 @@ namespace DS
 
 		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 		glutInitWindowSize(800, 600);
-		glutInitWindowPosition(100, 100);
+		glutInitWindowPosition(400, 200);
 		glutCreateWindow("Interactron");
 
 		initGL(800, 600);

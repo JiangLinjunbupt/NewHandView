@@ -21,24 +21,26 @@ void main(int argc, char** argv) {
 	Pose pose(0, 0, 0);
 	model = new Model(".\\model\\HandBase.bvh");
 	model->init();
-
-	handcontrol.LoadParams("handcontrol.txt");
-	handcontrol.ControlHand();
-	/*GenerateGroundtruth(model);*/
-	DS::groundtruthmat = generate_depthMap(model, projection);
-
-	float a = ComputeSilhouetteDifference(DS::groundtruthmat, DS::groundtruthmat);
 	
+	_handcontrol->LoadParams("handcontrol.txt");
+	_handcontrol->ControlHand();
+	/*GenerateGroundtruth(model);*/
+	_handcontrol->_costfunction.groundtruthmat = generate_depthMap(model, projection);
+	_handcontrol->_costfunction.ComputeGroundtruth_silhouette();
+
+	_cloudpoint.init(_handcontrol->_costfunction.groundtruthmat);
+	_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 241.3, 160, 120);
+
+
+	_handcontrol->RandomScaleAndTransParams();
+	_handcontrol->ControlHand();
 
 	SS::SubdivisionTheHand(model, 0);
-
-	_cloudpoint.init(DS::groundtruthmat);
-	_cloudpoint.DepthMatToCloudPoint(DS::groundtruthmat, 241.3, 160, 120);
 	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
 
-	cout << _cloudpoint.SumDistance / _cloudpoint.num_cloudpoint << endl;
-	cout << _cloudpoint.num_cloudpoint << endl;
-
+	cv::Mat generated_mat = generate_depthMap(model, projection);
+	_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
+	MixShowResult(generated_mat, _handcontrol->_costfunction.groundtruthmat);
 
 	//用于opengl显示
 	_data.init(SS::disVertices.size(), SS::disPatches.size());
@@ -71,10 +73,7 @@ float Compute_targetFunction(float area1, cv::Mat input)
 cv::Mat generate_depthMap(Model* model, Projection *projection)
 {
 	cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
-	handcontrol.ControlHand();
-
-	model->forward_kinematic();
-	model->compute_mesh();
+	_handcontrol->ControlHand();
 
 	projection->set_color_index(model);
 	projection->compute_current_orientation(model);
@@ -84,12 +83,12 @@ cv::Mat generate_depthMap(Model* model, Projection *projection)
 
 void LoadgroundtruthMat(char* filename)
 {
-	DS::groundtruthmat = cv::imread(filename, CV_LOAD_IMAGE_ANYDEPTH);  //这里采用CV_LOAD_IMAGE_UNCHANGED或者CV_LOAD_IMAGE_ANYDEPTH这个模式才可以真确的读入，不然读入都是不正确的，可能和存储的深度值是16位有关系。
-	cv::Mat show_depth = cv::Mat::zeros(DS::groundtruthmat.rows, DS::groundtruthmat.cols, CV_8UC1);
-	for (int i = 0; i < DS::groundtruthmat.rows; i++)
+	_handcontrol->_costfunction.groundtruthmat = cv::imread(filename, CV_LOAD_IMAGE_ANYDEPTH);  //这里采用CV_LOAD_IMAGE_UNCHANGED或者CV_LOAD_IMAGE_ANYDEPTH这个模式才可以真确的读入，不然读入都是不正确的，可能和存储的深度值是16位有关系。
+	cv::Mat show_depth = cv::Mat::zeros(_handcontrol->_costfunction.groundtruthmat.rows, _handcontrol->_costfunction.groundtruthmat.cols, CV_8UC1);
+	for (int i = 0; i < _handcontrol->_costfunction.groundtruthmat.rows; i++)
 	{
-		for (int j = 0; j < DS::groundtruthmat.cols; j++) {
-			show_depth.at<uchar>(i, j) = DS::groundtruthmat.at<ushort>(i, j) % 255;
+		for (int j = 0; j < _handcontrol->_costfunction.groundtruthmat.cols; j++) {
+			show_depth.at<uchar>(i, j) = _handcontrol->_costfunction.groundtruthmat.at<ushort>(i, j) % 255;
 		}
 	}
 	cv::imshow("kkk", show_depth);
@@ -99,9 +98,9 @@ void LoadgroundtruthMat(char* filename)
 void GenerateGroundtruth(Model* model)
 {
 	//生成真实值begin ，并且保存真实值为txt文件和png图片文件
-	handcontrol.RandomGenerateParams();
-	handcontrol.ControlHand();
-	handcontrol.SaveParams("groundtruth.txt");
+	_handcontrol->RandomGenerateParams();
+	_handcontrol->ControlHand();
+	_handcontrol->SaveParams("groundtruth.txt");
 	cv::Mat grounthmat = generate_depthMap( model, projection);
 	cv::imwrite("groundtruth.png", grounthmat);
 	//生成真实值end

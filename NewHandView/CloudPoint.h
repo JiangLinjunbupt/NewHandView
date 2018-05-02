@@ -12,6 +12,8 @@ struct CloudPoint {
 	float *cloudpointTomesh_inscribePoint;
 	int num_cloudpoint;
 	float SumDistance;
+	vector<cv::Point3f> cloudpoint_vector;
+	vector<cv::Point3f> visibleHandvertices;
 
 	CloudPoint() :cloudpoint(nullptr), cloudpointTomesh_minDistance(nullptr), cloudpointTomesh_inscribePoint(nullptr) {};
 	~CloudPoint() {
@@ -50,9 +52,15 @@ struct CloudPoint {
 			{
 				if (depthmat.at<ushort>(i, j) != 0)
 				{
-					this->cloudpoint[k] = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focal;
-					this->cloudpoint[k + 1] = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focal;
-					this->cloudpoint[k + 2] = -depthmat.at<ushort>(i, j);
+					cv::Point3f p;
+					p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focal;
+					p.y = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focal;
+					p.z = -depthmat.at<ushort>(i, j);
+					cloudpoint_vector.push_back(p);
+					this->cloudpoint[k] = p.x;
+					this->cloudpoint[k + 1] = p.y;
+					this->cloudpoint[k + 2] = p.z;
+
 					//cout << "the " << k << " point is : x  " << this->cloudpoint[k] << "  y: " << this->cloudpoint[k + 1] << " z: " << this->cloudpoint[k + 2] << endl;
 					k = k + 3;
 				}
@@ -60,7 +68,7 @@ struct CloudPoint {
 		}
 	}
 
-	void Compute_Cloud_to_Mesh_Distance()
+	void Compute_Cloud_to_Mesh_Distance2()
 	{
 		this->SumDistance = 0;
 		for (int i = 0; i < num_cloudpoint; i++)
@@ -116,6 +124,51 @@ struct CloudPoint {
 
 		}
 	}
+
+	void Compute_Cloud_to_Mesh_Distance()
+	{
+		this->SumDistance = 0;
+		cv::Mat target = cv::Mat(cloudpoint_vector).reshape(1);
+		target.convertTo(target, CV_32F);
+
+		visibleHandvertices.clear();
+		for (int i = 0;i<SS::visibleVertices.size();i++)
+		{
+			cv::Point3f p;
+			p.x = SS::disVertices[i].position.x;
+			p.y = SS::disVertices[i].position.y;
+			p.z = SS::disVertices[i].position.z;
+
+			visibleHandvertices.push_back(p);
+		}
+
+		cv::Mat sourse = cv::Mat(visibleHandvertices).reshape(1);
+		sourse.convertTo(sourse, CV_32F);
+
+
+		flann::KDTreeIndexParams indexParams(4);
+		flann::Index kdtree(sourse, indexParams);
+
+		int k = 1;
+		cv::Mat indices(target.rows, k, CV_32F);
+		cv::Mat dists(target.rows, k, CV_32F);         //搜索到的最近邻的距离
+
+		kdtree.knnSearch(target, indices, dists, k, cv::flann::SearchParams(32));
+
+
+
+		for (int i = 0; i < dists.rows; i++)
+		{
+			this->SumDistance = this->SumDistance + sqrt(dists.at<float>(i, 0));
+			cloudpointTomesh_minDistance[i] = sqrt(dists.at<float>(i, 0));
+			cloudpointTomesh_inscribePoint[i * 3] = SS::disVertices[indices.at<int>(i,0)].position.x;
+			cloudpointTomesh_inscribePoint[i * 3 + 1] = SS::disVertices[indices.at<int>(i, 0)].position.y;
+			cloudpointTomesh_inscribePoint[i * 3 + 2] = SS::disVertices[indices.at<int>(i, 0)].position.z;
+		}
+		
+
+	}
+
 
 };
 

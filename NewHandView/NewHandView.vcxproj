@@ -151,7 +151,6 @@
     <ClInclude Include="BVH.h" />
     <ClInclude Include="CloudPoint.h" />
     <ClInclude Include="Common.h" />
-    <ClInclude Include="CostFunction.h" />
     <ClInclude Include="Display.h" />
     <ClInclude Include="GeometryDataStructure.h" />
     <ClInclude Include="HandControl.h" />

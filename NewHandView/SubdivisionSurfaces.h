@@ -4,7 +4,7 @@
 #include "Common.h"
 #include "GeometryDataStructure.h"
 using namespace std;
-//using namespace cv;
+using namespace cv;
 
 class SubSurfaces {
 public:
@@ -47,10 +47,11 @@ public:
 		modeling(vertices, patches);
 	}
 
-	void generateDisplayModel(vector<PointType>& vertices, vector<PatchType>& patches, vector<PatchType>& visible_patches) {
+	void generateDisplayModel(vector<PointType>& vertices, vector<PatchType>& patches, vector<PatchType>& visible_patches,set<int>& visible_vertices) {
 		vPool.getVertices(vertices);
 		fPool.getPatches(patches);
 		visible_patches.clear();
+		visible_vertices.clear();
 		for (vector<PatchType>::iterator it = patches.begin(); it != patches.end(); it++)
 		{
 			cv::Vec3f va = vertices[it->v_idx[1]].position - vertices[it->v_idx[0]].position;
@@ -63,6 +64,9 @@ public:
 				visible.v_idx = it->v_idx;
 				visible.normal = it->normal;
 				visible_patches.push_back(visible);
+				visible_vertices.insert(it->v_idx[0]);
+				visible_vertices.insert(it->v_idx[1]);
+				visible_vertices.insert(it->v_idx[3]);
 			}
 #ifdef DEBUG
 			if (it->normal.dot(it->normal) < 0.001)
@@ -116,10 +120,10 @@ namespace SS
 	vector<PointType> disVertices;
 	vector<PatchType> disPatches;
 	vector<PatchType> visiblePatches;
-
+	set<int> visibleVertices;
 	void initModel(const vector<PointType>& vertices, const vector<PatchType>& patches) {
 		ssModel.initModel(vertices, patches);
-		ssModel.generateDisplayModel(disVertices, disPatches, visiblePatches);
+		ssModel.generateDisplayModel(disVertices, disPatches, visiblePatches,visibleVertices);
 		ssLevel = 0;
 		/*cout << "Initializatin:" << endl;
 		cout << "Number of vertices: " << disVertices.size() << endl;
@@ -147,7 +151,7 @@ namespace SS
 			break;
 		}
 		int64 time_end = cv::getTickCount();
-		ssModel.generateDisplayModel(disVertices, disPatches, visiblePatches);
+		ssModel.generateDisplayModel(disVertices, disPatches, visiblePatches,visibleVertices);
 		/*cout << "Subdivision Level: " << ssLevel << endl;
 		cout << "Subdivision Time: " << (time_end - time_start) / cv::getTickFrequency() << " s" << endl;
 		cout << "Number of vertices: " << disVertices.size() << endl;
