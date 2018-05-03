@@ -24,7 +24,7 @@ struct Config {
 	bool show_vertices;
 	bool show_mesh;
 
-	Config() :show_point(true), show_skeleton(true), show_vertices(false), show_mesh(false) {
+	Config() :show_point(false), show_skeleton(false), show_vertices(false), show_mesh(true) {
 	}
 };
 

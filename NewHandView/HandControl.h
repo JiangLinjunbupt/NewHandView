@@ -90,8 +90,8 @@ public:
 	struct CostFunction
 	{
 		float weight1 = 1,weight2 = 5;
-		float step = 0.2;
-		float trans_step = 0.8;
+		float step = 0.1;
+		float trans_step = 0.5;
 		float position_h = 1;
 		float scale_h = 0.1;
 		float trans_h = 1;
@@ -270,7 +270,6 @@ public:
 		model->set_joint_scale(palm.Getplamscale(), 21);  //这里让手腕和手掌同等缩小放大，防止看起来怪异
 		model->set_one_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()),0);
 
-
 		for (int i = 0; i < 5; i++)
 		{
 			for (int j = 0; j < 4; j++)
@@ -351,12 +350,12 @@ public:
 	{
 		Random random;
 		//随机全局位置
-		float random_palm_positonX, random_palm_positonY, random_palm_positonZ;
+		/*float random_palm_positonX, random_palm_positonY, random_palm_positonZ;
 		random_palm_positonX = random.Next(-50, 50);
 		random_palm_positonY = random.Next(-50, 50);
 		random_palm_positonZ = random.Next(-550, -500);
 		this->SetPlam_Position(random_palm_positonX, random_palm_positonY, random_palm_positonZ);
-
+*/
 		//随机手掌参数
 		Palm random_palm;
 		float random_palmscale;
@@ -502,7 +501,6 @@ public:
 
 		f << this->palm.Getplamscale() << " " << this->palm.GetRotate().GetRotateX() << " " << this->palm.GetRotate().GetRotateY() << " " << this->palm.GetRotate().GetRotateZ() << endl;
 		for (int i = 0; i < 5; i++) {
-			
 			f << this->fingers[i].Getfingerscale() << endl;
 			for (int j = 0; j < 4; j++)
 			{
@@ -731,9 +729,9 @@ public:
 	}
 	void ComputeGradient()
 	{
-		_costfunction.gradient[0] = this->ComputePalmPositionXGradient();
+		/*_costfunction.gradient[0] = this->ComputePalmPositionXGradient();
 		_costfunction.gradient[1] = this->ComputePalmPositionYGradient();
-		_costfunction.gradient[2] = this->ComputePalmPositionZGradient();
+		_costfunction.gradient[2] = this->ComputePalmPositionZGradient();*/
 
 		_costfunction.gradient[3] = this->ComputePalmScaleGradient();
 

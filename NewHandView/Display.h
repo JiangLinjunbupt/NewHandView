@@ -369,11 +369,11 @@ namespace DS
         //neet to edit 如何调整手部参数
 		if (_handcontrol->_costfunction.costfunction > _handcontrol->_costfunction.T)
 		{
-			/*_handcontrol->ComputeGradient();
-			_handcontrol->ParamsChangeUseGradient();*/
+			_handcontrol->ComputeGradient();
+			_handcontrol->ParamsChangeUseGradient();
 
 
-			_handcontrol->ParamsChangeUseGaussNewTon();
+			//_handcontrol->ParamsChangeUseGaussNewTon();
 
 			_handcontrol->ControlHand();
 

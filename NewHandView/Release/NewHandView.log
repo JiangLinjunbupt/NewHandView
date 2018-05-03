@@ -586,9 +586,9 @@ o:\githubprojects\newhandview\newhandview\HandControl.h(141): warning C4018: “
 o:\githubprojects\newhandview\newhandview\HandControl.h(171): warning C4018: “<”: 有符号/无符号不匹配
 o:\githubprojects\newhandview\newhandview\Display.h(182): warning C4018: “<”: 有符号/无符号不匹配
   正在生成代码
-  70 of 4146 functions ( 1.7%) were compiled, the rest were copied from previous compilation.
-    8 functions were new in current compilation
-    19 functions had inline decision re-evaluated but remain unchanged
+  1 of 4142 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    6 functions had inline decision re-evaluated but remain unchanged
   已完成代码的生成
   NewHandView.vcxproj -> O:\githubProjects\NewHandView\Release\NewHandView.exe
   NewHandView.vcxproj -> O:\githubProjects\NewHandView\Release\NewHandView.pdb (Full PDB)
