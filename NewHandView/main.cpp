@@ -25,14 +25,15 @@ void main(int argc, char** argv) {
 	_handcontrol->LoadParams("handcontrol.txt");
 	_handcontrol->ControlHand();
 	/*GenerateGroundtruth(model);*/
-	_handcontrol->_costfunction.groundtruthmat = generate_depthMap(model, projection);
+	//_handcontrol->_costfunction.groundtruthmat = generate_depthMap(model, projection);
+	LoadgroundtruthMat("groundtruth.png");
 	_handcontrol->_costfunction.ComputeGroundtruth_silhouette();
 
 	_cloudpoint.init(_handcontrol->_costfunction.groundtruthmat);
-	_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 241.3, 160, 120);
+	//_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 241.3, 160, 120);
+	_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 381.8452,382.1713, 264.0945, 217.1487);
 
-
-	_handcontrol->RandomScaleAndTransParams();
+	//_handcontrol->RandomScaleAndTransParams();
 	_handcontrol->ControlHand();
 
 	SS::SubdivisionTheHand(model, 0);
@@ -42,6 +43,11 @@ void main(int argc, char** argv) {
 	_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
 	MixShowResult(_handcontrol->_costfunction.groundtruthmat, generated_mat);
 
+	//cout << "pointcloud amount is : " << _cloudpoint.num_cloudpoint << endl;
+	//cout << "number of non zero pixle is : " << countNonZero(_handcontrol->_costfunction.groundtruthBinaryMat)<<endl;
+	//_handcontrol->ALLParamsChangeUsingGN();
+
+	//system("pause");
 	//ÓÃÓÚopenglÏÔÊ¾
 	_data.init(SS::disVertices.size(), SS::disPatches.size());
 	_data.SS_set(SS::disVertices, SS::disPatches);
@@ -72,7 +78,8 @@ float Compute_targetFunction(float area1, cv::Mat input)
 
 cv::Mat generate_depthMap(Model* model, Projection *projection)
 {
-	cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+	//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+	cv::Mat generated_mat = cv::Mat::zeros(424, 512, CV_16UC1);
 	_handcontrol->ControlHand();
 
 	projection->set_color_index(model);

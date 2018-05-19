@@ -66,7 +66,8 @@ public:
 				visible_patches.push_back(visible);
 				visible_vertices.insert(it->v_idx[0]);
 				visible_vertices.insert(it->v_idx[1]);
-				visible_vertices.insert(it->v_idx[3]);
+				visible_vertices.insert(it->v_idx[2]);
+				
 			}
 #ifdef DEBUG
 			if (it->normal.dot(it->normal) < 0.001)
@@ -76,8 +77,6 @@ public:
 			}
 #endif // DEBUG
 		}
-
-
 	}
 private:
 	vector<PointType> ori_vertices;

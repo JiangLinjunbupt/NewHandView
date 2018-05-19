@@ -43,7 +43,7 @@ struct CloudPoint {
 
 	}
 
-	void DepthMatToCloudPoint(cv::Mat depthmat, double focal, float centerx, float centery)
+	void DepthMatToCloudPoint(cv::Mat depthmat, double focalx, double focaly,float centerx, float centery)
 	{
 		int k = 0;
 		for (int i = 0; i < depthmat.rows; i++)
@@ -53,9 +53,16 @@ struct CloudPoint {
 				if (depthmat.at<ushort>(i, j) != 0)
 				{
 					cv::Point3f p;
-					p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focal;
+					/*p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focal;
 					p.y = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focal;
+					p.z = -depthmat.at<ushort>(i, j);*/
+
+
+					p.x = -(j - centerx) * (-depthmat.at<ushort>(i, j)) / focalx;
+					p.y = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focaly;
 					p.z = -depthmat.at<ushort>(i, j);
+
+
 					cloudpoint_vector.push_back(p);
 					this->cloudpoint[k] = p.x;
 					this->cloudpoint[k + 1] = p.y;
@@ -132,13 +139,26 @@ struct CloudPoint {
 		target.convertTo(target, CV_32F);
 
 		visibleHandvertices.clear();
-		for (int i = 0;i<SS::visibleVertices.size();i++)
+		for (int j = 0; j < SS::visiblePatches.size(); j++)
 		{
 			cv::Point3f p;
-			p.x = SS::disVertices[i].position.x;
-			p.y = SS::disVertices[i].position.y;
-			p.z = SS::disVertices[i].position.z;
 
+			float Ax = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.x;
+			float Ay = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.y;
+			float Az = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.z;
+
+			float Bx = SS::disVertices[SS::visiblePatches[j].v_idx(1)].position.x;
+			float By = SS::disVertices[SS::visiblePatches[j].v_idx(1)].position.y;
+			float Bz = SS::disVertices[SS::visiblePatches[j].v_idx(1)].position.z;
+
+			float Cx = SS::disVertices[SS::visiblePatches[j].v_idx(2)].position.x;;
+			float Cy = SS::disVertices[SS::visiblePatches[j].v_idx(2)].position.y;;
+			float Cz = SS::disVertices[SS::visiblePatches[j].v_idx(2)].position.z;;
+
+
+			p.x = (Ax + Bx) / 4.0f + Cx / 2.0f;
+			p.y = (Ay + By) / 4.0f + Cy / 2.0f;
+			p.z = (Az + Bz) / 4.0f + Cz / 2.0f;
 			visibleHandvertices.push_back(p);
 		}
 
@@ -161,9 +181,9 @@ struct CloudPoint {
 		{
 			this->SumDistance = this->SumDistance + dists.at<float>(i, 0);
 			cloudpointTomesh_minDistance[i] = sqrt(dists.at<float>(i, 0));
-			cloudpointTomesh_inscribePoint[i * 3] = SS::disVertices[indices.at<int>(i,0)].position.x;
-			cloudpointTomesh_inscribePoint[i * 3 + 1] = SS::disVertices[indices.at<int>(i, 0)].position.y;
-			cloudpointTomesh_inscribePoint[i * 3 + 2] = SS::disVertices[indices.at<int>(i, 0)].position.z;
+			cloudpointTomesh_inscribePoint[i * 3] = visibleHandvertices[indices.at<int>(i, 0)].x;
+			cloudpointTomesh_inscribePoint[i * 3 + 1] = visibleHandvertices[indices.at<int>(i, 0)].y;
+			cloudpointTomesh_inscribePoint[i * 3 + 2] = visibleHandvertices[indices.at<int>(i, 0)].z;
 		}
 		
 

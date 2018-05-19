@@ -9,11 +9,19 @@
 
 using namespace std;
 #include <direct.h>
+//struct ProjectParam {
+//	double focal;
+//	double centerx;
+//	double centery;
+//	ProjectParam() :focal(241.3), centerx(160), centery(120) {}
+//};
+
 struct ProjectParam {
-	double focal;
+	double focalx;
+	double focaly;
 	double centerx;
 	double centery;
-	ProjectParam() :focal(241.3), centerx(160), centery(120) {}
+	ProjectParam() :focalx(381.8452), focaly(382.1713),centerx(264.0945), centery(217.1487) {}
 };
 
 struct Pixel {
@@ -59,8 +67,8 @@ public:
 	void projection0(double x3d, double y3d, double z3d,
 		double& x2d, double & y2d, double& depth) {
 		depth = -z3d;
-		x2d = x3d * param_.focal / z3d + param_.centerx;
-		y2d = -y3d* param_.focal / z3d + param_.centery;
+		x2d = -x3d * param_.focalx / z3d + param_.centerx;
+		y2d = -y3d* param_.focaly / z3d + param_.centery;
 	}
 	void get_joint_position(Model* model) {
 		int num_joint = model->get_number_of_joint();
@@ -139,8 +147,8 @@ public:
 	void projection(double x3d, double y3d, double z3d,
 		double& x2d, double & y2d, double& depth) {
 		depth = -z3d;
-		x2d = x3d * param_.focal / z3d + param_.centerx;
-		y2d = -y3d* param_.focal / z3d + param_.centery;
+		x2d = -x3d * param_.focalx / z3d + param_.centerx;
+		y2d = -y3d* param_.focaly / z3d + param_.centery;
 
 		if (x2d < 0) x2d = 0;
 		if (x2d > depth_.cols - 1) x2d = depth_.cols - 1;
@@ -322,7 +330,8 @@ public:
 			return;
 		}
 
-		cv::Mat show_depth = cv::Mat::zeros(240, 320, CV_8UC1);
+		//cv::Mat show_depth = cv::Mat::zeros(240, 320, CV_8UC1);
+		cv::Mat show_depth = cv::Mat::zeros(424, 512, CV_8UC1);
 		for (int i = 0; i < show_depth.rows; i++)
 		{
 			for (int j = 0; j < show_depth.cols; j++) {
@@ -349,4 +358,6 @@ private:
 
 };
 
-static Projection *projection = new Projection(240, 320, 23, 28);
+//static Projection *projection = new Projection(240, 320, 23, 28);
+
+static Projection *projection = new Projection(424, 512, 23, 28);

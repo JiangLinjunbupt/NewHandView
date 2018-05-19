@@ -367,7 +367,7 @@ namespace DS
 	void idle() {
 
         //neet to edit 如何调整手部参数
-		if (_handcontrol->_costfunction.costfunction > _handcontrol->_costfunction.T)
+		if (!_handcontrol->ParamsChangeStop)
 		{
 			_handcontrol->ComputeGradient();
 			_handcontrol->ParamsChangeUseGradient();
@@ -380,7 +380,8 @@ namespace DS
 			SS::SubdivisionTheHand(model, 0);
 			_cloudpoint.Compute_Cloud_to_Mesh_Distance();
 
-			cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+			//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+			cv::Mat generated_mat = cv::Mat::zeros(424, 512, CV_16UC1);
 			projection->compute_current_orientation(model);
 			projection->project_3d_to_2d_(model, generated_mat);
 			MixShowResult(_handcontrol->_costfunction.groundtruthmat, generated_mat);
@@ -394,7 +395,7 @@ namespace DS
 		}
 		else
 		{
-			cout << "the costfunction meet the threshold, optimizing over ! ";
+			cout << "the costfunction meet the threshold, optimizing over ! "<<endl;
 		}
 		glutPostRedisplay();
 	}

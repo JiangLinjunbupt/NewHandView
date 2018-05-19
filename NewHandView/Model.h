@@ -61,7 +61,8 @@ public:
 	Eigen::MatrixXd vertices_update_;
 
 
-private:
+//private:
+public:
 	BVH bvh_;
 	Pose global_position_;
 	Pose global_position_center_;
