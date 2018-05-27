@@ -164,9 +164,35 @@ namespace SS
 		vector<PointType> _vertices;
 		vector<PatchType> _patches;
 
+		vector<float> _weight;
+
+		for (int i = 0; i < model->weight_.rows(); i ++ )
+		{
+			double t = -1e10;
+			int idx = 0;
+			for (int j = 0; j < model->weight_.cols(); j++)
+			{
+				if (t < model->weight_(i, j)) {
+					t = model->weight_(i, j);
+					idx = j;
+				}
+			}
+
+			if (idx == 0 || idx ==21)
+			{
+				_weight.push_back(1.0);
+			
+			}
+			else
+			{
+				_weight.push_back(5.0);
+				
+			}
+		}
+
 		for (int i = 0; i < model->vertices_update_.rows(); i++)
 		{
-			_vertices.push_back(PointType(float(model->vertices_update_(i, 0)), float(model->vertices_update_(i, 1)), float(model->vertices_update_(i, 2)), 1, 1, 1));
+			_vertices.push_back(PointType(float(model->vertices_update_(i, 0)), float(model->vertices_update_(i, 1)), float(model->vertices_update_(i, 2)), 1, 1, 1,_weight[i]));
 		}
 		for (int i = 0; i < model->faces_.rows(); i++)
 		{

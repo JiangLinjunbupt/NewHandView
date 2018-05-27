@@ -363,6 +363,46 @@ void Model::set_one_rotation(Pose pose, int index) {
 	transform_matrix(joint->pose, joint->rotation);
 }
 
+void Model::set_hand_rotation(Pose pose)
+{
+	BVH::Joint* joint = bvh_.GetJoint(0);
+
+	Eigen::MatrixXd z0 = Eigen::MatrixXd::Identity(4, 4);
+
+	double cz0 = cos(-90.0 / 180 * PI);
+	double sz0 = sin(-90.0 / 180 * PI);
+
+	z0(0, 0) = cz0; z0(1, 1) = cz0;
+	z0(0, 1) = -sz0; z0(1, 0) = sz0;
+
+
+	Eigen::MatrixXd x = Eigen::MatrixXd::Identity(4, 4);
+	Eigen::MatrixXd y = Eigen::MatrixXd::Identity(4, 4);
+	Eigen::MatrixXd z = Eigen::MatrixXd::Identity(4, 4);
+
+	double cx = cos(pose.x / 180 * PI);
+	double sx = sin(pose.x / 180 * PI);
+
+	double cy = cos(-pose.y / 180 * PI);
+	double sy = sin(-pose.y / 180 * PI);
+
+	double cz = cos(-pose.z / 180 * PI);
+	double sz = sin(-pose.z / 180 * PI);
+
+	x(1, 1) = cx; x(2, 2) = cx;
+	x(1, 2) = -sx; x(2, 1) = sx;
+
+	y(0, 0) = cy; y(0, 2) = sy;
+	y(2, 0) = -sy; y(2, 2) = cy;
+
+	z(0, 0) = cz; z(1, 1) = cz;
+	z(0, 1) = -sz; z(1, 0) = sz;
+
+
+	joint->rotation = x*y*z*z0;   //Ðý×ªË³Ðò z-y-x
+	
+}
+
 void Model::set_rotation(Pose* pose) {
 	int number_joint = bvh_.GetNumJoint();
 	for (int i = 0; i < number_joint; i++) {
@@ -371,6 +411,7 @@ void Model::set_rotation(Pose* pose) {
 		transform_matrix(joint->pose, joint->rotation);
 	}
 }
+
 
 void Model::compute_parent_child_transform() {
 	int number_joint = bvh_.GetNumJoint();

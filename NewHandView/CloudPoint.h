@@ -15,6 +15,9 @@ struct CloudPoint {
 	vector<cv::Point3f> cloudpoint_vector;
 	vector<cv::Point3f> visibleHandvertices;
 
+
+	float center_x, center_y, center_z;
+
 	CloudPoint() :cloudpoint(nullptr), cloudpointTomesh_minDistance(nullptr), cloudpointTomesh_inscribePoint(nullptr) {};
 	~CloudPoint() {
 		delete[] cloudpoint;
@@ -41,11 +44,18 @@ struct CloudPoint {
 		this->cloudpointTomesh_minDistance = new float[num_cloudpoint];
 		this->cloudpointTomesh_inscribePoint = new float[num_cloudpoint * 3];
 
+		center_x = 0;
+		center_y = 0;
+		center_z = 0;
 	}
 
 	void DepthMatToCloudPoint(cv::Mat depthmat, double focalx, double focaly,float centerx, float centery)
 	{
 		int k = 0;
+		this->center_x = 0;
+		this->center_y = 0;
+		this->center_z = 0;
+
 		for (int i = 0; i < depthmat.rows; i++)
 		{
 			for (int j = 0; j < depthmat.cols; j++)
@@ -58,12 +68,15 @@ struct CloudPoint {
 					p.z = -depthmat.at<ushort>(i, j);*/
 
 
-					p.x = -(j - centerx) * (-depthmat.at<ushort>(i, j)) / focalx;
-					p.y = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focaly;
+					p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focalx;
+					p.y = (i - centery) * (-depthmat.at<ushort>(i, j)) / focaly;
 					p.z = -depthmat.at<ushort>(i, j);
 
+					this->center_x += p.x;
+					this->center_y += p.y;
+					this->center_z += p.z;
 
-					cloudpoint_vector.push_back(p);
+					this->cloudpoint_vector.push_back(p);
 					this->cloudpoint[k] = p.x;
 					this->cloudpoint[k + 1] = p.y;
 					this->cloudpoint[k + 2] = p.z;
@@ -73,6 +86,11 @@ struct CloudPoint {
 				}
 			}
 		}
+
+		this->center_x = 3.0*this->center_x / (float)k;
+		this->center_y = 3.0*this->center_y / (float)k;
+		this->center_z = 3.0*this->center_z / (float)k;
+
 	}
 
 	void Compute_Cloud_to_Mesh_Distance2()
@@ -91,7 +109,7 @@ struct CloudPoint {
 
 			for (int j = 0; j < SS::visiblePatches.size(); j++)
 			{
-				//开始计算距离，然后计算点投影到该三角形平面的投影点是否在三角形内部
+				//开始计算距离
 				float Ax = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.x;
 				float Ay = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.y;
 				float Az = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.z;
@@ -139,9 +157,13 @@ struct CloudPoint {
 		target.convertTo(target, CV_32F);
 
 		visibleHandvertices.clear();
+		vector<float> weight;
+
+		//int handweightCount = 0;
 		for (int j = 0; j < SS::visiblePatches.size(); j++)
 		{
 			cv::Point3f p;
+			
 
 			float Ax = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.x;
 			float Ay = SS::disVertices[SS::visiblePatches[j].v_idx(0)].position.y;
@@ -155,12 +177,39 @@ struct CloudPoint {
 			float Cy = SS::disVertices[SS::visiblePatches[j].v_idx(2)].position.y;;
 			float Cz = SS::disVertices[SS::visiblePatches[j].v_idx(2)].position.z;;
 
+			//cout << "1:  " << SS::disVertices[SS::visiblePatches[j].v_idx(0)].weight << "   2:  " << SS::disVertices[SS::visiblePatches[j].v_idx(2)].weight << "   3:  " << SS::disVertices[SS::visiblePatches[j].v_idx(2)].weight << endl;
+			
 
+			float max_weight = SS::disVertices[SS::visiblePatches[j].v_idx(0)].weight;
+
+			//if (SS::disVertices[SS::visiblePatches[j].v_idx(0)].weight > 2 || SS::disVertices[SS::visiblePatches[j].v_idx(1)].weight > 2 || SS::disVertices[SS::visiblePatches[j].v_idx(2)].weight > 2)
+			//{
+			//	handweightCount++;
+			//}
+
+			if (SS::disVertices[SS::visiblePatches[j].v_idx(1)].weight >max_weight)
+			{
+				max_weight = SS::disVertices[SS::visiblePatches[j].v_idx(1)].weight;
+			}
+
+			if (SS::disVertices[SS::visiblePatches[j].v_idx(2)].weight > max_weight)
+			{
+				max_weight = SS::disVertices[SS::visiblePatches[j].v_idx(2)].weight;
+			}
+
+			//if (max_weight > 2.0)
+			//{
+			//	handweightCount++;
+			//}
 			p.x = (Ax + Bx) / 4.0f + Cx / 2.0f;
 			p.y = (Ay + By) / 4.0f + Cy / 2.0f;
 			p.z = (Az + Bz) / 4.0f + Cz / 2.0f;
 			visibleHandvertices.push_back(p);
+			weight.push_back(max_weight);
 		}
+
+
+		//cout << "the size is : "<<weight.size()<<"    handweightCount is：" << handweightCount << endl;
 
 		cv::Mat sourse = cv::Mat(visibleHandvertices).reshape(1);
 		sourse.convertTo(sourse, CV_32F);
@@ -179,7 +228,7 @@ struct CloudPoint {
 
 		for (int i = 0; i < dists.rows; i++)
 		{
-			this->SumDistance = this->SumDistance + dists.at<float>(i, 0);
+			this->SumDistance = this->SumDistance + dists.at<float>(i, 0)*weight[indices.at<int>(i, 0)];
 			cloudpointTomesh_minDistance[i] = sqrt(dists.at<float>(i, 0));
 			cloudpointTomesh_inscribePoint[i * 3] = visibleHandvertices[indices.at<int>(i, 0)].x;
 			cloudpointTomesh_inscribePoint[i * 3 + 1] = visibleHandvertices[indices.at<int>(i, 0)].y;

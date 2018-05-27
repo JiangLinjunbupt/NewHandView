@@ -220,18 +220,6 @@ namespace DS
 			}
 
 
-
-
-			glLineWidth(1);
-			glColor3f(1.0, 0.0, 0);
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			glFrontFace(GL_CCW);              // 设置逆时针方向为正面 
-			glBegin(GL_TRIANGLES);
-			glVertex3f(model->vertices_update_(1418, 0), model->vertices_update_(1418, 1), model->vertices_update_(1418, 2));
-			glVertex3f(model->vertices_update_(1398, 0), model->vertices_update_(1398, 1), model->vertices_update_(1398, 2));
-			glVertex3f(model->vertices_update_(1399, 0), model->vertices_update_(1399, 1), model->vertices_update_(1399, 2));
-			glEnd();
-
 			//画出可见部分面部分的法向量
 			//for (int i = 0; i < model->visible_faces.size(); i++)
 			//{
@@ -333,10 +321,11 @@ namespace DS
 		glLineWidth(5);
 		glColor3f(0.0, 0.0, 1.0);
 		glBegin(GL_LINES);
+		glVertex3f(0, 0, -1000);
 		glVertex3f(0, 0, 0);
-		glVertex3f(0, 0, 1000);
 		glEnd();
 
+		
 		glFlush();
 		glutSwapBuffers();
 	}

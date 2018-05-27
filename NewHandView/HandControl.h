@@ -87,6 +87,9 @@ public:
 	Palm palm;
 	Pose palm_position;
 
+	Pose palm_rotation;
+
+
 	int paramsSize;
 	float* paramsOfhand;
 
@@ -95,7 +98,7 @@ public:
 	struct CostFunction
 	{
 		float weight1 = 1,weight2 = 0.5;
-
+		Point p_center;
 		double steparry[7] = {0.001, 0.005,0.01,0.03,0.05,0.08,0.1 };
 		float step = 0.01;
 
@@ -106,7 +109,8 @@ public:
 		float trans_h = 1;
 		float T = 0;
 		float costfunction = 10000;
-		float gradient[24] = { 0 };
+		//float gradient[24] = { 0 };
+		float gradient[27] = { 0 };
 		int rendered_silhouetteSize;
 		int groundtruth_silhouetteSize = 0;
 
@@ -289,8 +293,13 @@ public:
 		this->fingers = new Finger[5]; 
 		this->palm_position.x = 0;
 		this->palm_position.y = 0;
-		this->paramsSize = 24;
 		this->palm_position.z = -800; 
+		this->palm_rotation.x = 0;
+		this->palm_rotation.y = 0;
+		this->palm_rotation.z = 0;
+
+		//this->paramsSize = 24;
+		this->paramsSize = 27;
 		this->paramsOfhand = new float[this->paramsSize];
 		this->ParamsToMat();
 		this->ParamsChangeStop = false;
@@ -307,12 +316,16 @@ public:
 	void SetParamOfHand(float *p) { this->paramsOfhand = p; }
 	//吧参数传递给手摸的函数,并使得手摸进行相应变化
 	void ControlHand() {
+		
+		this->palm.SetRotate(this->palm_rotation.x, this->palm_rotation.y, this->palm_rotation.z);
+
 		model->set_global_position(palm_position);
 		model->set_global_position_center(palm_position);
 
 		model->set_joint_scale(palm.Getplamscale(), 0);
 		model->set_joint_scale(palm.Getplamscale(), 21);  //这里让手腕和手掌同等缩小放大，防止看起来怪异
 		model->set_one_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()),0);
+		//model->set_hand_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()));
 
 		for (int i = 0; i < 5; i++)
 		{
@@ -323,6 +336,11 @@ public:
 				model->set_one_trans(fingers[i].GetTrans()[j].GettransX(), i*4 + j + 1);
 			}
 		}
+
+		//this->LoadGlovePose("Handinf.txt");
+		//model->set_one_rotation(palm_rotation, 0);
+		//model->set_one_rotation(Pose(0,0,90), 0);
+		//model->set_hand_rotation(Pose(0, 0, 90));
 
 		model->forward_kinematic();
 		model->compute_mesh();
@@ -504,6 +522,20 @@ public:
 		this->ParamsToMat();
 
 	}
+	void AddNoiseToPalmRotation()
+	{
+		Random random;
+		float x = this->palm.GetRotate().GetRotateX() + 20 * random.NextDouble();
+		float y = this->palm.GetRotate().GetRotateY() + 40 ;
+		float z = this->palm.GetRotate().GetRotateZ() + 20 * random.NextDouble();
+
+		this->palm.SetRotate(x, y, z);
+
+		this->palm_rotation.x = this->palm.GetRotate().GetRotateX();
+		this->palm_rotation.y = this->palm.GetRotate().GetRotateY();
+		this->palm_rotation.z = this->palm.GetRotate().GetRotateZ();
+
+	}
 	//根据梯度，或者牛顿高斯法改变参数，只改变大小，全局位置，和手指长度（sacle, position ,trans)
 
 	void ParamsChangeUseLevmar()
@@ -635,8 +667,8 @@ public:
 		this->ParamsChange(_costfunction.steparry[minindex]);
 
 		this->ParamsChangeStop = true;
-		float JudgeGradient[24];
-		for (int i = 0; i < 24; i++)
+		float JudgeGradient[27];
+		for (int i = 0; i < 27; i++)
 		{
 			if ((i == 3) || (i == 4) || (i == 8) || (i == 12) || (i == 16) || (i == 20))
 			{
@@ -647,7 +679,7 @@ public:
 				JudgeGradient[i] = _costfunction.steparry[minindex] * 50 * _costfunction.gradient[i];
 			}
 
-			if (abs(JudgeGradient[i]) > 0.35)
+			if (abs(JudgeGradient[i]) > 0.001)
 			{
 				this->ParamsChangeStop = false;
 			}
@@ -1020,63 +1052,6 @@ public:
 	//}
 
 
-	//存储和读出参数
-	void SaveParams(char* filename){
-		ofstream f;
-		f.open(filename, ios::out);
-		f << this->palm_position.x << " " << this->palm_position.y <<" "<<this->palm_position.z<< endl;
-
-		f << this->palm.Getplamscale() << " " << this->palm.GetRotate().GetRotateX() << " " << this->palm.GetRotate().GetRotateY() << " " << this->palm.GetRotate().GetRotateZ() << endl;
-		for (int i = 0; i < 5; i++) {
-			f << this->fingers[i].Getfingerscale() << endl;
-			for (int j = 0; j < 4; j++)
-			{
-				f << this->fingers[i].GetRotete()[j].GetRotateX() << " " << this->fingers[i].GetRotete()[j].GetRotateY() << " " << this->fingers[i].GetRotete()[j].GetRotateZ() << " "<< this->fingers[i].GetTrans()[j].GettransX() <<endl;
-			}
-		}
-		f.close();
-	}
-	void LoadParams(char* filename){
-		fstream f;
-		f.open(filename, ios::in);
-		f >> this->palm_position.x>> this->palm_position.y>> this->palm_position.z;
-
-		float read_palmscale, read_RotateX, read_RotateY, read_RotateZ;
-		RotateControl read_rotate;
-		f >> read_palmscale >> read_RotateX >> read_RotateY >> read_RotateZ;
-
-		read_rotate.SetRotateX(read_RotateX);
-		read_rotate.SetRotateY(read_RotateY);
-		read_rotate.SetRotateZ(read_RotateZ);
-		this->palm.Setpalmscale(read_palmscale);
-		this->palm.SetRotate(read_rotate);
-
-		Finger *read_fingers = new Finger[5];
-		for (int i = 0; i < 5; i++)
-		{
-			float read_fingerscale;
-			f >> read_fingerscale;
-			read_fingers[i].Setfingerscale(read_fingerscale);
-			for (int j = 0; j < 4; j++) {
-				RotateControl read_fingerRotation;
-				TransControl read_fingerTrans;
-				float read_fingerRotateX, read_fingerRotateY, read_fingerRotateZ, read_fingertrans;
-				f >> read_fingerRotateX >> read_fingerRotateY >> read_fingerRotateZ>> read_fingertrans;
-				read_fingerRotation.SetRotateX(read_fingerRotateX);
-				read_fingerRotation.SetRotateY(read_fingerRotateY);
-				read_fingerRotation.SetRotateZ(read_fingerRotateZ);
-				read_fingerTrans.SettransX(read_fingertrans);
-
-				read_fingers[i].SetRotate(read_fingerRotation, j);
-				read_fingers[i].SetTrans(read_fingerTrans, j);
-
-			}
-		}
-		this->SetFingers(read_fingers);
-		this->ParamsToMat();
-		f.close();
-	}
-
 	//计算梯度
 	float ComputePalmPositionXGradient()
 	{
@@ -1282,21 +1257,132 @@ public:
 		this->ControlHand();
 		return gradient_fingertrans;
 	}
-	void ComputeGradient()
+
+	float ComputePalmRotationXGradient()
+	{
+		float gradient1, gradient2;
+		float save;
+		save = palm_rotation.x;
+		this->palm_rotation.x = this->palm_rotation.x + _costfunction.position_h;
+		this->ControlHand();
+		SS::SubdivisionTheHand(model, 0);
+		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
+
+		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+
+		projection->compute_current_orientation(model);
+		projection->project_3d_to_2d_(model, generated_mat_1);
+		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+
+
+		this->palm_rotation.x = this->palm_rotation.x - 2 * _costfunction.position_h;
+		this->ControlHand();
+		SS::SubdivisionTheHand(model, 0);
+		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
+
+		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+
+		projection->compute_current_orientation(model);
+		projection->project_3d_to_2d_(model, generated_mat_2);
+		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
+
+		this->palm_rotation.x = save;
+		this->ControlHand();
+		return gradient_positionX;
+	}
+	float ComputePalmRotationYGradient()
+	{
+		float gradient1, gradient2;
+		float save;
+		save = palm_rotation.y;
+		this->palm_rotation.y = this->palm_rotation.y + _costfunction.position_h;
+		this->ControlHand();
+		SS::SubdivisionTheHand(model, 0);
+		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
+
+		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+
+		projection->compute_current_orientation(model);
+		projection->project_3d_to_2d_(model, generated_mat_1);
+		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+
+
+		this->palm_rotation.y = this->palm_rotation.y - 2 * _costfunction.position_h;
+		this->ControlHand();
+		SS::SubdivisionTheHand(model, 0);
+		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
+
+		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+
+		projection->compute_current_orientation(model);
+		projection->project_3d_to_2d_(model, generated_mat_2);
+		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
+
+		this->palm_rotation.y = save;
+		this->ControlHand();
+		return gradient_positionX;
+	}
+	float ComputePalmRotationZGradient()
+	{
+		float gradient1, gradient2;
+		float save;
+		save = palm_rotation.z;
+		this->palm_rotation.z = this->palm_rotation.z + _costfunction.position_h;
+		this->ControlHand();
+		SS::SubdivisionTheHand(model, 0);
+		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
+
+		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+
+		projection->compute_current_orientation(model);
+		projection->project_3d_to_2d_(model, generated_mat_1);
+		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+
+
+		this->palm_rotation.z = this->palm_rotation.z - 2 * _costfunction.position_h;
+		this->ControlHand();
+		SS::SubdivisionTheHand(model, 0);
+		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
+
+		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+
+		projection->compute_current_orientation(model);
+		projection->project_3d_to_2d_(model, generated_mat_2);
+		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
+
+		this->palm_rotation.z = save;
+		this->ControlHand();
+		return gradient_positionX;
+	}
+	void  ComputeGradient()
 	{
 		_costfunction.gradient[0] = this->ComputePalmPositionXGradient();
 		_costfunction.gradient[1] = this->ComputePalmPositionYGradient();
 		_costfunction.gradient[2] = this->ComputePalmPositionZGradient();
 
-		/*_costfunction.gradient[3] = this->ComputePalmScaleGradient();
+		//_costfunction.gradient[3] = this->ComputePalmScaleGradient();
 
-		for (int i = 0; i < 5; i++)
+		/*for (int i = 0; i < 5; i++)
 		{
 			_costfunction.gradient[3 + i * 4 + 1] = this->ComputeFingerScaleGradient(i);
 			_costfunction.gradient[3 + i * 4 + 2] = this->ComputeFingerTransGradient(i, 0);
 			_costfunction.gradient[3 + i * 4 + 3] = this->ComputeFingerTransGradient(i, 1);
 			_costfunction.gradient[3 + i * 4 + 4] = this->ComputeFingerTransGradient(i, 2);
 		}*/
+
+		_costfunction.gradient[24] = this->ComputePalmRotationXGradient();
+		_costfunction.gradient[25] = this->ComputePalmRotationYGradient();
+		_costfunction.gradient[26] = this->ComputePalmRotationZGradient();
+
 
 	}
 
@@ -1555,7 +1641,6 @@ public:
 		}
 	}
 
-
 	//改变参数存储形式
 	void ParamsToMat()
 	{
@@ -1571,6 +1656,11 @@ public:
 			this->paramsOfhand[3 + i * 4 + 3] = this->fingers[i].GetTrans()[1].GettransX();
 			this->paramsOfhand[3 + i * 4 + 4] = this->fingers[i].GetTrans()[2].GettransX();
 		}
+
+		this->paramsOfhand[24] = this->palm_rotation.x;
+		this->paramsOfhand[25] = this->palm_rotation.y;
+		this->paramsOfhand[26] = this->palm_rotation.z;
+
 		
 	}
 	void MatToParams()
@@ -1587,6 +1677,10 @@ public:
 			this->fingers[i].SetTrans(this->paramsOfhand[3 + i * 4 + 3] , 1);
 			this->fingers[i].SetTrans(this->paramsOfhand[3 + i * 4 + 4] , 2);
 		}
+
+		this->palm_rotation.x = this->paramsOfhand[24];
+		this->palm_rotation.y = this->paramsOfhand[25];
+		this->palm_rotation.z = this->paramsOfhand[26];
 
 	}
 
@@ -1606,6 +1700,11 @@ public:
 			this->fingers[i].SetTrans(this->fingers[i].GetTrans()[1].GettransX() - step *50* _costfunction.gradient[3 + i * 4 + 3], 1);
 			this->fingers[i].SetTrans(this->fingers[i].GetTrans()[2].GettransX() - step *50* _costfunction.gradient[3 + i * 4 + 4], 2);
 		}
+
+
+		this->palm_rotation.x = this->palm_rotation.x - step*20*_costfunction.gradient[24];
+		this->palm_rotation.y = this->palm_rotation.y - step*20*_costfunction.gradient[25];
+		this->palm_rotation.z = this->palm_rotation.z - step*20*_costfunction.gradient[26];
 
 
 		this->LimitedPalmScale();
@@ -1628,6 +1727,114 @@ public:
 		float function_out;
 		function_out = _costfunction.ComputeCostfunction(generated_mat, _costfunction.groundtruthmat);
 		return function_out;
+	}
+
+	void LoadGlovePose(char *filename)
+	{
+		fstream f;
+		f.open(filename, ios::in);
+
+		for (int i = 0; i < 5; i++)
+		{
+			if (i != 4)
+			{
+				float Mcp_x, Mcp_z, Pip;
+				f >> Mcp_x >> Mcp_z >> Pip;
+				Pose p1(0, Mcp_x, Mcp_z), p2(0, Pip, 0), p3(0, Pip*0.66, 0);
+
+				//this->fingers[3 - i].SetRotate(0, Mcp_x, Mcp_z, 0);
+				this->fingers[3 - i].SetRotate(0, Mcp_x, 0, 0);
+				this->fingers[3 - i].SetRotate(0, Pip, 0, 1);
+				this->fingers[3 - i].SetRotate(0, Pip*0.66, 0, 2);
+				/*model->set_one_rotation(p1, 13 - i * 4);
+				model->set_one_rotation(p2, 14 - i * 4);
+				model->set_one_rotation(p3, 15 - i * 4);*/
+			}
+			else
+			{
+				float Mcp_x, Mcp_z, Pip;
+				f >> Mcp_x >> Mcp_z >> Pip;
+				Pose p1(0, Mcp_x, 0), p2(0, Pip, 0);
+				this->fingers[i].SetRotate(0, Mcp_x, Mcp_z, 0);
+				this->fingers[i].SetRotate(0, Pip, 0, 2);
+				//model->set_one_rotation(p1, 17);
+				////model->set_one_rotation(p2, 18);
+				//model->set_one_rotation(p2, 19);
+			}
+		}
+
+		float global_x, global_y, global_z;
+		f >> global_x >> global_y >> global_z;
+		Pose p_global(global_x, global_y, global_z);
+		RotateControl read_rotate;
+		read_rotate.SetRotateX(global_x);
+		read_rotate.SetRotateY(global_y);
+		read_rotate.SetRotateZ(global_z);
+		this->palm.SetRotate(read_rotate);
+		//model->set_hand_rotation(p_global);
+		f.close();
+	}
+
+	//存储和读出参数
+	void SaveParams(char* filename) {
+		ofstream f;
+		f.open(filename, ios::out);
+		f << this->palm_position.x << " " << this->palm_position.y << " " << this->palm_position.z << endl;
+
+		f << this->palm.Getplamscale() << " " << this->palm.GetRotate().GetRotateX() << " " << this->palm.GetRotate().GetRotateY() << " " << this->palm.GetRotate().GetRotateZ() << endl;
+		for (int i = 0; i < 5; i++) {
+			f << this->fingers[i].Getfingerscale() << endl;
+			for (int j = 0; j < 4; j++)
+			{
+				f << this->fingers[i].GetRotete()[j].GetRotateX() << " " << this->fingers[i].GetRotete()[j].GetRotateY() << " " << this->fingers[i].GetRotete()[j].GetRotateZ() << " " << this->fingers[i].GetTrans()[j].GettransX() << endl;
+			}
+		}
+		f.close();
+	}
+	void LoadParams(char* filename) {
+		fstream f;
+		f.open(filename, ios::in);
+		f >> this->palm_position.x >> this->palm_position.y >> this->palm_position.z;
+
+		float read_palmscale, read_RotateX, read_RotateY, read_RotateZ;
+		RotateControl read_rotate;
+		f >> read_palmscale >> read_RotateX >> read_RotateY >> read_RotateZ;
+
+		read_rotate.SetRotateX(read_RotateX);
+		read_rotate.SetRotateY(read_RotateY);
+		read_rotate.SetRotateZ(read_RotateZ);
+		this->palm.Setpalmscale(read_palmscale);
+		this->palm.SetRotate(read_rotate);
+
+		Finger *read_fingers = new Finger[5];
+		for (int i = 0; i < 5; i++)
+		{
+			float read_fingerscale;
+			f >> read_fingerscale;
+			read_fingers[i].Setfingerscale(read_fingerscale);
+			for (int j = 0; j < 4; j++) {
+				RotateControl read_fingerRotation;
+				TransControl read_fingerTrans;
+				float read_fingerRotateX, read_fingerRotateY, read_fingerRotateZ, read_fingertrans;
+				f >> read_fingerRotateX >> read_fingerRotateY >> read_fingerRotateZ >> read_fingertrans;
+				read_fingerRotation.SetRotateX(read_fingerRotateX);
+				read_fingerRotation.SetRotateY(read_fingerRotateY);
+				read_fingerRotation.SetRotateZ(read_fingerRotateZ);
+				read_fingerTrans.SettransX(read_fingertrans);
+
+				read_fingers[i].SetRotate(read_fingerRotation, j);
+				read_fingers[i].SetTrans(read_fingerTrans, j);
+
+			}
+		}
+		this->SetFingers(read_fingers);
+
+		this->palm_rotation.x = this->palm.GetRotate().GetRotateX();
+		this->palm_rotation.y = this->palm.GetRotate().GetRotateY();
+		this->palm_rotation.z = this->palm.GetRotate().GetRotateZ();
+
+		this->ParamsToMat();
+		f.close();
 	}
 };
 

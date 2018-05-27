@@ -23,10 +23,12 @@ void main(int argc, char** argv) {
 	model->init();
 	
 	_handcontrol->LoadParams("handcontrol.txt");
+	//_handcontrol->LoadGlovePose("Handinf3.txt");
 	_handcontrol->ControlHand();
 	/*GenerateGroundtruth(model);*/
 	//_handcontrol->_costfunction.groundtruthmat = generate_depthMap(model, projection);
-	LoadgroundtruthMat("groundtruth.png");
+	//imwrite("handcontrolMat.png", _handcontrol->_costfunction.groundtruthmat);
+	LoadgroundtruthMat("handcontrolMat.png");
 	_handcontrol->_costfunction.ComputeGroundtruth_silhouette();
 
 	_cloudpoint.init(_handcontrol->_costfunction.groundtruthmat);
@@ -34,6 +36,11 @@ void main(int argc, char** argv) {
 	_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 381.8452,382.1713, 264.0945, 217.1487);
 
 	//_handcontrol->RandomScaleAndTransParams();
+
+	_handcontrol->SetPlam_Position(_cloudpoint.center_x, _cloudpoint.center_y, _cloudpoint.center_z); //使用点云的形心作为手摸的初始位置。
+
+	_handcontrol->AddNoiseToPalmRotation();
+	//_handcontrol->palm_rotation.z = 90;
 	_handcontrol->ControlHand();
 
 	SS::SubdivisionTheHand(model, 0);

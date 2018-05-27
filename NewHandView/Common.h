@@ -20,7 +20,10 @@ struct PatchType {
 struct PointType {
 	cv::Point3f position;
 	cv::Vec3f color;//b,g,r
+	float weight;
 	PointType(float x, float y, float z, float r, float g, float b) :position(x, y, z), color(b, g, r) {
+	}
+	PointType(float x, float y, float z, float r, float g, float b,float w) :position(x, y, z), color(b, g, r), weight(w){
 	}
 	PointType() {}
 };

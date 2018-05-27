@@ -26,6 +26,7 @@ public:
 	void compute_local_inverse();
 
 	void set_one_rotation(Pose pose, int index);
+	void set_hand_rotation(Pose pose);
 	void set_one_trans(float tansZ, int index);
 	void set_rotation(Pose* pose);
 	void set_global_position(Pose global_position);
