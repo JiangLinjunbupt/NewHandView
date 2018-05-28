@@ -99,6 +99,8 @@ public:
 	{
 		float weight1 = 1,weight2 = 0.5;
 		Point p_center;
+		int  ROI_len_x = 140;
+		int  ROI_len_y = 140;
 		double steparry[7] = {0.001, 0.005,0.01,0.03,0.05,0.08,0.1 };
 		float step = 0.01;
 
@@ -124,135 +126,34 @@ public:
 		cv::Mat groundtruthmat = cv::Mat::zeros(424, 512, CV_16UC1);
 		cv::Mat groundtruthBinaryMat = cv::Mat::zeros(424, 512, CV_64F);
 
+		cv::Mat groundtruthROIMat = cv::Mat::zeros(ROI_len_x, ROI_len_y, CV_16UC1);
+		cv::Mat groundtruthROIBinaryMat = cv::Mat::zeros(ROI_len_x, ROI_len_y, CV_64F);
+
 		vector<Point> groundtruth_silhouette;
 		
-		void ComputeGroundtruth_silhouette()
+		void ComputeGroundtruthRoIBinaryMat()
 		{
-			groundtruth_silhouette.clear();
-			cv::Mat groundtruth_Silhouette_copy = cv::Mat::zeros(groundtruthmat.rows, groundtruthmat.cols, CV_8UC1);
-			for (int i = 0; i < groundtruthmat.rows; i++)
+			Moments moment = moments(groundtruthmat, true);
+			p_center.x = moment.m10 / moment.m00;
+			p_center.y = moment.m01 / moment.m00;
+
+
+			for (int i = 0; i < ROI_len_x; i++)
 			{
-				for (int j = 0; j < groundtruthmat.cols; j++) {
-					if (groundtruthmat.at<ushort>(i, j) != 0)
+				for (int j = 0; j < ROI_len_y; j++) {
+					if (i + p_center.x - ROI_len_x / 2 >= 0 && i + p_center.x - ROI_len_x / 2 <= groundtruthmat.cols-1 && j + p_center.y - ROI_len_y / 2 >=0 && j + p_center.y - ROI_len_y / 2  <= groundtruthmat.rows-1)
 					{
-						groundtruth_Silhouette_copy.at<uchar>(i, j) = 255;
-						groundtruthBinaryMat.at<double>(i,j) = 1;
+						if (groundtruthmat.at<ushort>(j + p_center.y - ROI_len_y / 2, i + p_center.x - ROI_len_x / 2) != 0)
+						{
+							//groundtruthBinaryMat.at<double>(i,j) = 1.0;
+							groundtruthROIBinaryMat.at<double>(j, i) = 1.0;
+							groundtruthROIMat.at<ushort>(j, i) = groundtruthmat.at<ushort>(j + p_center.y - ROI_len_y / 2, i + p_center.x - ROI_len_x / 2);
+						}
 					}
 				}
 			}
-
-			threshold(groundtruth_Silhouette_copy, groundtruth_Silhouette_copy, 10, 255.0, CV_THRESH_BINARY);
-
-			vector<vector<Point>>contours_groundtruth_Silhouette;
-			vector<Vec4i>hierarchy_groundtruth_Silhouette;
-
-			findContours(groundtruth_Silhouette_copy, contours_groundtruth_Silhouette, hierarchy_groundtruth_Silhouette, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE);
-
-			int index_groundthuth = -1;
-			double area, maxArea(0);
-			for (int i = 0; i < contours_groundtruth_Silhouette.size(); i++)
-			{
-				area = contourArea(Mat(contours_groundtruth_Silhouette[i]));
-				if (area > maxArea) {
-					maxArea = area;
-					index_groundthuth = i;
-				}
-			}
-			this->groundtruth_silhouetteSize = contours_groundtruth_Silhouette[index_groundthuth].size();
-			for (int i = 0; i < contours_groundtruth_Silhouette[index_groundthuth].size(); i++)
-			{
-				groundtruth_silhouette.push_back(contours_groundtruth_Silhouette[index_groundthuth][i]);
-			}
-
 		}
 
-		//float ComputeSilhouetteDifference(cv::Mat rendered_Silhouette,cv::Mat useless)
-		//{
-
-		//	cv::Mat rendered_Silhouette_copy = cv::Mat::zeros(rendered_Silhouette.rows, rendered_Silhouette.cols, CV_8UC1);
-		//	for (int i = 0; i < rendered_Silhouette.rows; i++)
-		//	{
-		//		for (int j = 0; j < rendered_Silhouette.cols; j++) {
-		//			if (rendered_Silhouette.at<ushort>(i, j) != 0)
-		//				rendered_Silhouette_copy.at<uchar>(i, j) = 255;
-		//		}
-		//	}
-
-		//	
-		//	threshold(rendered_Silhouette_copy, rendered_Silhouette_copy, 10, 255.0, CV_THRESH_BINARY);          //threshold 的输入图像应该是单通道8位或者32位的，所以要先把16位的图像转换成8位图像
-		//	//cv::imshow("rendered_Silhouette", rendered_Silhouette_copy);
-
-		//	vector<vector<Point>>contours_rendered_Silhouette;
-		//	vector<Vec4i>hierarchy_rendered_Silhouette;
-		//	findContours(rendered_Silhouette_copy, contours_rendered_Silhouette, hierarchy_rendered_Silhouette, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE);
-		//	
-
-		//	int index_render = -1;
-		//	double area, maxArea(0);
-		//	for (int i = 0; i < contours_rendered_Silhouette.size(); i++)
-		//	{
-		//		area = contourArea(Mat(contours_rendered_Silhouette[i]));
-		//		if(area > maxArea){
-		//			maxArea = area;
-		//			index_render = i;
-		//		}
-		//	}
-		//	
-		//	/*cv::Ptr <cv::HausdorffDistanceExtractor> hausdorff_ptr = cv::createHausdorffDistanceExtractor();
-		//	float distance = hausdorff_ptr->computeDistance(contours_rendered_Silhouette[index_render], contours_groundtruth_Silhouette[index_groundthuth]);*/
-
-		//	rendered_silhouetteSize = contours_rendered_Silhouette[index_render].size();
-		//	renderToGroundtruthMinDistance.clear();
-		//	groundtruthTorenderMinDistance.clear();
-
-		//	Mat sourse = cv::Mat(this->groundtruth_silhouette).reshape(1);
-		//	Mat target = cv::Mat(contours_rendered_Silhouette[index_render]).reshape(1);
-		//	target.convertTo(target, CV_32F);       //这里必须转换成CV_32F或者CV_8U
-		//	sourse.convertTo(sourse, CV_32F);
-		//	flann::KDTreeIndexParams indexParams(2);
-		//	flann::Index kdtree(sourse, indexParams);
-
-		//	int k = 1;
-		//	cv::Mat indices(target.rows, k, CV_32F);
-		//	cv::Mat dists(target.rows, k, CV_32F);         //搜索到的最近邻的距离
-
-		//	kdtree.knnSearch(target, indices, dists,k, cv::flann::SearchParams(32));
-
-		//	this->distance_renderTogroundtruth = 0;
-
-		//	for (int i = 0; i < dists.rows; i++)
-		//	{
-		//		this->distance_renderTogroundtruth = this->distance_renderTogroundtruth + dists.at<float>(i, 0);
-		//		renderToGroundtruthMinDistance.push_back(sqrt(dists.at<float>(i, 0)));
-		//	}
-		//	this->distance_renderTogroundtruth = this->distance_renderTogroundtruth / dists.rows;
-
-
-
-		//	flann::KDTreeIndexParams indexParams2(2);
-		//	flann::Index kdtree2(target, indexParams2);
-
-		//	int k2 = 1;
-		//	cv::Mat indices2(sourse.rows, k2, CV_32F);
-		//	cv::Mat dists2(sourse.rows, k2, CV_32F);         //搜索到的最近邻的距离
-
-		//	kdtree2.knnSearch(sourse, indices2, dists2, k2, cv::flann::SearchParams(32));
-
-		//	distance_groundtruthTorender = 0;
-
-		//	for (int i = 0; i < dists2.rows; i++)
-		//	{
-		//		distance_groundtruthTorender = distance_groundtruthTorender + dists2.at<float>(i, 0);
-		//		groundtruthTorenderMinDistance.push_back(sqrt(dists2.at<float>(i, 0)));
-		//	}
-		//	
-		//	distance_groundtruthTorender = distance_groundtruthTorender / dists2.rows;
-		//	/*cv::imshow("rendered_Silhouette", rendered_Silhouette_copy);
-		//	cv::imshow("groundtruth_Silhouette", groundtruth_Silhouette_copy);*/
-
-		//	return 1*distance_groundtruthTorender+1* this->distance_renderTogroundtruth;
-
-		//}
 
 		float ComputeMatDifference(cv::Mat rendered_Silhouette)
 		{
@@ -265,8 +166,7 @@ public:
 				}
 			}
 
-
-			cv::Mat differenceMat = groundtruthBinaryMat - rendered_BinaryMat;
+			cv::Mat differenceMat = groundtruthROIBinaryMat - rendered_BinaryMat;
 			float difference = countNonZero(differenceMat);
 			return difference;
 		}
@@ -278,7 +178,7 @@ public:
 		//	return this->costfunction;
 		//}
 
-		float ComputeCostfunction(cv::Mat rendered_Silhouette, cv::Mat groundtruth_Silhouette)
+		float ComputeCostfunction(cv::Mat rendered_Silhouette)
 		{
 
 			this->costfunction = weight1*_cloudpoint.SumDistance / _cloudpoint.num_cloudpoint + weight2*ComputeMatDifference(rendered_Silhouette);
@@ -317,15 +217,15 @@ public:
 	//吧参数传递给手摸的函数,并使得手摸进行相应变化
 	void ControlHand() {
 		
-		this->palm.SetRotate(this->palm_rotation.x, this->palm_rotation.y, this->palm_rotation.z);
+		this->palm.SetRotate(this->palm_rotation.x, this->palm_rotation.y, this->palm_rotation.z);    //在使用Kinect真实深度时候，需要注释掉
 
 		model->set_global_position(palm_position);
 		model->set_global_position_center(palm_position);
 
 		model->set_joint_scale(palm.Getplamscale(), 0);
 		model->set_joint_scale(palm.Getplamscale(), 21);  //这里让手腕和手掌同等缩小放大，防止看起来怪异
-		model->set_one_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()),0);
-		//model->set_hand_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()));
+		model->set_one_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()),0);  //在使用Kinect真实深度时候，需要注释掉
+		//model->set_hand_rotation(Pose(palm.GetRotate().GetRotateX(), palm.GetRotate().GetRotateY(), palm.GetRotate().GetRotateZ()));     //在使用模拟数据时候，需要注释掉
 
 		for (int i = 0; i < 5; i++)
 		{
@@ -1058,30 +958,30 @@ public:
 		float gradient1, gradient2;
 		float save;
 		save = palm_position.x;
-		this->palm_position.x = this->palm_position.x + _costfunction.position_h;
+		this->palm_position.x = save + _costfunction.position_h;
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
-		this->palm_position.x = this->palm_position.x - 2 * _costfunction.position_h;
+		this->palm_position.x = save - _costfunction.position_h;
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
 
 		this->palm_position.x = save;
@@ -1098,12 +998,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->palm_position.y = this->palm_position.y - 2 * _costfunction.position_h;
@@ -1111,12 +1011,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_positionY = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
 
 
@@ -1133,24 +1033,24 @@ public:
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->palm_position.z = this->palm_position.z - 2 * _costfunction.position_h;
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_positionZ = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
 
 		this->palm_position.z = save;
@@ -1166,24 +1066,24 @@ public:
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->palm.Setpalmscale(save - _costfunction.scale_h);
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_palmscale = (gradient1 - gradient2) / 2.0*_costfunction.scale_h;
 
 		this->palm.Setpalmscale(save);
@@ -1199,24 +1099,24 @@ public:
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->fingers[index].Setfingerscale(save - _costfunction.scale_h);
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);;
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_fingerscale = (gradient1 - gradient2) / 2.0*_costfunction.scale_h;
 
 		this->fingers[index].Setfingerscale(save);
@@ -1233,24 +1133,24 @@ public:
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);;
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->fingers[index1].SetTrans(save - _costfunction.trans_h, index2);
 		this->ControlHand();
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);;
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_fingertrans = (gradient1 - gradient2) / 2.0*_costfunction.trans_h;
 
 		this->fingers[index1].SetTrans(save, index2);
@@ -1268,12 +1168,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->palm_rotation.x = this->palm_rotation.x - 2 * _costfunction.position_h;
@@ -1281,12 +1181,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
 
 		this->palm_rotation.x = save;
@@ -1303,12 +1203,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->palm_rotation.y = this->palm_rotation.y - 2 * _costfunction.position_h;
@@ -1316,12 +1216,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
 
 		this->palm_rotation.y = save;
@@ -1338,12 +1238,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_1 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_1 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_1 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_1);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_1);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1, _costfunction.groundtruthmat);
+		gradient1 = _costfunction.ComputeCostfunction(generated_mat_1);
 
 
 		this->palm_rotation.z = this->palm_rotation.z - 2 * _costfunction.position_h;
@@ -1351,12 +1251,12 @@ public:
 		SS::SubdivisionTheHand(model, 0);
 		//cv::Mat generated_mat_2 = cv::Mat::zeros(240, 320, CV_16UC1);
 
-		cv::Mat generated_mat_2 = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat_2 = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_2);
+		projection->project_3d_to_2d_when_calc(model, generated_mat_2);
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2, _costfunction.groundtruthmat);
+		gradient2 = _costfunction.ComputeCostfunction(generated_mat_2);
 		float gradient_positionX = (gradient1 - gradient2) / 2.0*_costfunction.position_h;
 
 		this->palm_rotation.z = save;
@@ -1720,12 +1620,12 @@ public:
 		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
 
 		//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
-		cv::Mat generated_mat = cv::Mat::zeros(424, 512, CV_16UC1);
+		cv::Mat generated_mat = cv::Mat::zeros(_costfunction.ROI_len_y, _costfunction.ROI_len_x, CV_16UC1);
 		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat);
+		projection->project_3d_to_2d_when_calc(model, generated_mat);
 		
 		float function_out;
-		function_out = _costfunction.ComputeCostfunction(generated_mat, _costfunction.groundtruthmat);
+		function_out = _costfunction.ComputeCostfunction(generated_mat);
 		return function_out;
 	}
 
@@ -1887,6 +1787,6 @@ void func(double *p, double *x, int m, int n, void *data)
 	}
 
 
-	_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
+	_handcontrol->_costfunction.ComputeCostfunction(generated_mat);
 	
 }

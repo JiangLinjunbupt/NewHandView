@@ -35,14 +35,23 @@ int map_label[NUM_JOINT] = { 1,2,3,4,0,5,6,7,0,8,9,10,0,11,12,13,0,14,15,16,0,17
 
 class Projection {
 public:
-	Projection(int height, int width, int num_joint, int num_pose) {
+
+	int GroundTruthMatCenter_x;
+	int GroundTruthMatCenter_y;
+	int GroundTruthRoI_lenx;
+	int GroundTruthRoI_leny;
+
+	Projection(int height, int width, int num_joint, int num_pose,int RoI_lenx,int RoI_leny) {
 		depth_ = cv::Mat::zeros(height, width, CV_16UC1);
 		part_ = cv::Mat::zeros(height, width, CV_8UC1);
 		orient_ = cv::Mat::zeros(height, width, CV_32FC1);
 		joint_ = cv::Mat::zeros(num_joint, 3, CV_32FC1);
 		pose_ = cv::Mat::zeros(num_pose, 1, CV_32FC1);
 		joint2d_ = Eigen::MatrixXd::Zero(num_joint, 3);
-
+		RoI_depth_ = cv::Mat::zeros(RoI_leny, RoI_lenx, CV_16UC1);
+		RoI_part_ = cv::Mat::zeros(RoI_leny, RoI_lenx, CV_8UC1);
+		GroundTruthMatCenter_x = 0;
+		GroundTruthMatCenter_y = 0;
 	}
 
 	~Projection() {}
@@ -145,6 +154,18 @@ public:
 	}
 
 	void projection(double x3d, double y3d, double z3d,
+		double& x2d, double & y2d, double& depth) {
+		depth = -z3d;
+		x2d = x3d * param_.focalx / z3d + param_.centerx;
+		y2d = y3d* param_.focaly / z3d + param_.centery;
+
+		if (x2d < 0) x2d = 0;
+		if (x2d > depth_.cols - 1) x2d = depth_.cols - 1;
+		if (y2d <0) y2d = 0;
+		if (y2d > depth_.rows - 1) y2d = depth_.rows - 1;
+	}
+
+	void projection_when_calc(double x3d, double y3d, double z3d,
 		double& x2d, double & y2d, double& depth) {
 		depth = -z3d;
 		x2d = x3d * param_.focalx / z3d + param_.centerx;
@@ -343,14 +364,14 @@ public:
 		save_depth.copyTo(outputmat);
 	}
 
-	void project_3d_to_2d_when_calc(Model* model, cv::Mat outputmat,int center_x,int center_y) {
+	void project_3d_to_2d_when_calc(Model* model, cv::Mat outputmat) {
 		Eigen::MatrixXd vertice = model->vertices_update_;
 		int num_vertice = model->vertices_update_.rows();
 		vertice2d_ = Eigen::MatrixXd::Zero(num_vertice, 3);
 		double x2d, y2d, depth;
 
-		depth_.setTo(0);
-		part_.setTo(0);
+		RoI_depth_.setTo(0);
+		RoI_part_.setTo(0);
 
 		for (int i = 0; i < model->vertices_update_.rows(); i++) {
 			projection(model->vertices_update_(i, 0),
@@ -411,30 +432,36 @@ public:
 					else { alpha0 = (x2) / (x0); }
 				}
 
+				
+
 
 				if (pixels_[i][j].x >= 0 && pixels_[i][j].x< depth_.cols
 					&& pixels_[i][j].y >= 0 && pixels_[i][j].y < depth_.rows) {
-					depth = depth0 + alpha0*(depth1 - depth0) + alpha1*(depth2 - depth0);
-					ushort v = depth_.at<ushort>(pixels_[i][j].y, pixels_[i][j].x);
-					if (v != 0) {
-						ushort k = (ushort)depth;
-						depth_.at<ushort>(pixels_[i][j].y, pixels_[i][j].x) = min(v, (ushort)depth);
-						if (v>(ushort) depth) {
-							part_.at<uchar>(pixels_[i][j].y, pixels_[i][j].x) = (uchar)(map_label[coloridx_(f, 0)]);
+					if (pixels_[i][j].x >= GroundTruthMatCenter_x - GroundTruthRoI_lenx / 2 && pixels_[i][j].x < GroundTruthMatCenter_x + GroundTruthRoI_lenx / 2
+						&& pixels_[i][j].y >= GroundTruthMatCenter_y - GroundTruthRoI_leny / 2 && pixels_[i][j].y < GroundTruthMatCenter_y + GroundTruthRoI_leny / 2)
+					{
+						depth = depth0 + alpha0*(depth1 - depth0) + alpha1*(depth2 - depth0);
+						ushort v = RoI_depth_.at<ushort>(pixels_[i][j].y - GroundTruthMatCenter_y + GroundTruthRoI_leny/2, pixels_[i][j].x- GroundTruthMatCenter_x + GroundTruthRoI_lenx / 2);
+						if (v != 0) {
+							ushort k = (ushort)depth;
+							RoI_depth_.at<ushort>(pixels_[i][j].y - GroundTruthMatCenter_y + GroundTruthRoI_leny / 2, pixels_[i][j].x - GroundTruthMatCenter_x + GroundTruthRoI_lenx / 2) = min(v, (ushort)depth);
+							if (v > (ushort) depth) {
+								RoI_part_.at<uchar>(pixels_[i][j].y - GroundTruthMatCenter_y + GroundTruthRoI_leny / 2, pixels_[i][j].x - GroundTruthMatCenter_x + GroundTruthRoI_lenx / 2) = (uchar)(map_label[coloridx_(f, 0)]);
+							}
 						}
-					}
-					else {
-						ushort k = (ushort)depth;
-						depth_.at<ushort>(pixels_[i][j].y, pixels_[i][j].x) = (ushort)depth;
-						part_.at<uchar>(pixels_[i][j].y, pixels_[i][j].x) = (uchar)(map_label[coloridx_(f, 0)]);
+						else {
+							ushort k = (ushort)depth;
+							RoI_depth_.at<ushort>(pixels_[i][j].y - GroundTruthMatCenter_y + GroundTruthRoI_leny / 2, pixels_[i][j].x - GroundTruthMatCenter_x + GroundTruthRoI_lenx / 2) = (ushort)depth;
+							RoI_part_.at<uchar>(pixels_[i][j].y - GroundTruthMatCenter_y + GroundTruthRoI_leny / 2, pixels_[i][j].x - GroundTruthMatCenter_x + GroundTruthRoI_lenx / 2) = (uchar)(map_label[coloridx_(f, 0)]);
+						}
 					}
 				}
 			}
 		}
 
-		remove_arm(depth_, part_);
+		remove_arm(RoI_depth_, RoI_part_);
 		cv::Mat save_depth;
-		cv::medianBlur(depth_, save_depth, 5);
+		cv::medianBlur(RoI_depth_, save_depth, 5);
 
 
 		// if depth value is larger than 65536, it is error.
@@ -445,7 +472,7 @@ public:
 		}
 
 		//cv::Mat show_depth = cv::Mat::zeros(240, 320, CV_8UC1);
-		cv::Mat show_depth = cv::Mat::zeros(424, 512, CV_8UC1);
+		cv::Mat show_depth = cv::Mat::zeros(GroundTruthRoI_leny, GroundTruthRoI_lenx, CV_8UC1);
 		for (int i = 0; i < show_depth.rows; i++)
 		{
 			for (int j = 0; j < show_depth.cols; j++) {
@@ -462,6 +489,8 @@ private:
 	cv::Mat part_;
 	cv::Mat joint_;
 	cv::Mat pose_;
+	cv::Mat RoI_depth_;
+	cv::Mat RoI_part_;
 	ProjectParam param_;
 	vector<vector<Pixel> > pixels_;
 	Eigen::MatrixXd vertice2d_;
@@ -473,4 +502,4 @@ private:
 
 //static Projection *projection = new Projection(240, 320, 23, 28);
 
-static Projection *projection = new Projection(424, 512, 23, 28);
+static Projection *projection = new Projection(424, 512, 23, 28,140,140);

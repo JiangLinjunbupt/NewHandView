@@ -14,6 +14,7 @@ void LoadgroundtruthMat(char* filename);
 float Compute_area(cv::Mat input);
 float Compute_targetFunction(float area1, cv::Mat input);
 cv::Mat generate_depthMap(Model* model, Projection *projection);
+cv::Mat generate_ROIdepthMap(Model* model, Projection *projection);
 void GenerateGroundtruth(Model* model);
 
 void main(int argc, char** argv) {
@@ -29,32 +30,37 @@ void main(int argc, char** argv) {
 	//_handcontrol->_costfunction.groundtruthmat = generate_depthMap(model, projection);
 	//imwrite("handcontrolMat.png", _handcontrol->_costfunction.groundtruthmat);
 	LoadgroundtruthMat("handcontrolMat.png");
-	_handcontrol->_costfunction.ComputeGroundtruth_silhouette();
+	//LoadgroundtruthMat("groundtruth3.png");
+	_handcontrol->_costfunction.ComputeGroundtruthRoIBinaryMat();
 
-	_cloudpoint.init(_handcontrol->_costfunction.groundtruthmat);
+
+	_cloudpoint.init(_handcontrol->_costfunction.groundtruthmat, 
+		_handcontrol->_costfunction.p_center.x, 
+		_handcontrol->_costfunction.p_center.y, 
+		_handcontrol->_costfunction.ROI_len_x, 
+		_handcontrol->_costfunction.ROI_len_y);
+
 	//_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 241.3, 160, 120);
 	_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 381.8452,382.1713, 264.0945, 217.1487);
 
-	//_handcontrol->RandomScaleAndTransParams();
 
-	_handcontrol->SetPlam_Position(_cloudpoint.center_x, _cloudpoint.center_y, _cloudpoint.center_z); //使用点云的形心作为手摸的初始位置。
+	projection->GroundTruthMatCenter_x = _handcontrol->_costfunction.p_center.x;
+	projection->GroundTruthMatCenter_y = _handcontrol->_costfunction.p_center.y;
+	projection->GroundTruthRoI_lenx = _handcontrol->_costfunction.ROI_len_x;
+	projection->GroundTruthRoI_leny = _handcontrol->_costfunction.ROI_len_y;
+
+	_handcontrol->SetPlam_Position(_cloudpoint.PointCloud_center_x, _cloudpoint.PointCloud_center_y, _cloudpoint.PointCloud_center_z); //使用点云的形心作为手摸的初始位置。
 
 	_handcontrol->AddNoiseToPalmRotation();
-	//_handcontrol->palm_rotation.z = 90;
 	_handcontrol->ControlHand();
 
 	SS::SubdivisionTheHand(model, 0);
 	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
 
-	cv::Mat generated_mat = generate_depthMap(model, projection);
-	_handcontrol->_costfunction.ComputeCostfunction(generated_mat, _handcontrol->_costfunction.groundtruthmat);
-	MixShowResult(_handcontrol->_costfunction.groundtruthmat, generated_mat);
+	cv::Mat generated_mat = generate_ROIdepthMap(model, projection);
+	_handcontrol->_costfunction.ComputeCostfunction(generated_mat);
+	MixShowResult(_handcontrol->_costfunction.groundtruthROIMat, generated_mat);
 
-	//cout << "pointcloud amount is : " << _cloudpoint.num_cloudpoint << endl;
-	//cout << "number of non zero pixle is : " << countNonZero(_handcontrol->_costfunction.groundtruthBinaryMat)<<endl;
-	//_handcontrol->ALLParamsChangeUsingGN();
-
-	//system("pause");
 	//用于opengl显示
 	_data.init(SS::disVertices.size(), SS::disPatches.size());
 	_data.SS_set(SS::disVertices, SS::disPatches);
@@ -62,6 +68,7 @@ void main(int argc, char** argv) {
 
 	DS::init(argc, argv);
 	DS::start();
+
 }
 
 float Compute_area(cv::Mat input)
@@ -95,6 +102,18 @@ cv::Mat generate_depthMap(Model* model, Projection *projection)
 	return generated_mat;
 }
 
+cv::Mat generate_ROIdepthMap(Model* model, Projection *projection)
+{
+	//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+	cv::Mat generated_mat = cv::Mat::zeros(_handcontrol->_costfunction.ROI_len_y, _handcontrol->_costfunction.ROI_len_x, CV_16UC1);
+	_handcontrol->ControlHand();
+
+	projection->set_color_index(model);
+	projection->compute_current_orientation(model);
+	projection->project_3d_to_2d_when_calc(model, generated_mat);
+	return generated_mat;
+}
+
 void LoadgroundtruthMat(char* filename)
 {
 	_handcontrol->_costfunction.groundtruthmat = cv::imread(filename, CV_LOAD_IMAGE_ANYDEPTH);  //这里采用CV_LOAD_IMAGE_UNCHANGED或者CV_LOAD_IMAGE_ANYDEPTH这个模式才可以真确的读入，不然读入都是不正确的，可能和存储的深度值是16位有关系。
@@ -105,7 +124,12 @@ void LoadgroundtruthMat(char* filename)
 			show_depth.at<uchar>(i, j) = _handcontrol->_costfunction.groundtruthmat.at<ushort>(i, j) % 255;
 		}
 	}
-	cv::imshow("kkk", show_depth);
+	Moments moment = moments(show_depth, true);
+	Point center(moment.m10 / moment.m00, moment.m01 / moment.m00);
+
+	//cout << center.x << "   " << center.y << endl;
+	circle(show_depth, center, 8, Scalar(255, 255, 255), CV_FILLED);
+	cv::imshow("The groundtruthMat", show_depth);
 	cv::waitKey(100);
 }
 

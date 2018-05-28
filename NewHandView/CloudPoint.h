@@ -12,11 +12,15 @@ struct CloudPoint {
 	float *cloudpointTomesh_inscribePoint;
 	int num_cloudpoint;
 	float SumDistance;
+	int GroundTruthMatCenter_X;
+	int GroundTruthMatCenter_Y;
+	int GroundTruthRoILen_X;
+	int GroundTruthRoILen_Y;
 	vector<cv::Point3f> cloudpoint_vector;
 	vector<cv::Point3f> visibleHandvertices;
 
 
-	float center_x, center_y, center_z;
+	float PointCloud_center_x, PointCloud_center_y, PointCloud_center_z;
 
 	CloudPoint() :cloudpoint(nullptr), cloudpointTomesh_minDistance(nullptr), cloudpointTomesh_inscribePoint(nullptr) {};
 	~CloudPoint() {
@@ -25,16 +29,19 @@ struct CloudPoint {
 		delete[] cloudpointTomesh_inscribePoint;
 	}
 
-	void init(cv::Mat depthmat)
+	void init(cv::Mat depthmat,int center_x,int center_y,int RoI_lenx,int RoI_leny)
 	{
 		int Num_NotZeroPixel = 0;
-		for (int i = 0; i < depthmat.rows; i++)
+		for (int i = 0; i < RoI_lenx; i++)
 		{
-			for (int j = 0; j < depthmat.cols; j++)
+			for (int j = 0; j < RoI_leny; j++)
 			{
-				if (depthmat.at<ushort>(i, j) != 0)
+				if (i + center_x - RoI_lenx / 2 >= 0 && i + center_x - RoI_lenx / 2 <= depthmat.cols - 1 && j + center_y - RoI_leny / 2 >= 0 && j + center_y - RoI_leny / 2 <= depthmat.rows - 1)
 				{
-					Num_NotZeroPixel++;
+					if (depthmat.at<ushort>(j + center_y - RoI_leny / 2, i + center_x - RoI_lenx / 2) != 0)
+					{
+						Num_NotZeroPixel++;
+					}
 				}
 			}
 		}
@@ -44,52 +51,60 @@ struct CloudPoint {
 		this->cloudpointTomesh_minDistance = new float[num_cloudpoint];
 		this->cloudpointTomesh_inscribePoint = new float[num_cloudpoint * 3];
 
-		center_x = 0;
-		center_y = 0;
-		center_z = 0;
+		this->PointCloud_center_x = 0;
+		this->PointCloud_center_y = 0;
+		this->PointCloud_center_z = 0;
+
+		this->GroundTruthMatCenter_X = center_x;
+		this->GroundTruthMatCenter_Y = center_y;
+		this->GroundTruthRoILen_X = RoI_lenx;
+		this->GroundTruthRoILen_Y = RoI_leny;
 	}
 
 	void DepthMatToCloudPoint(cv::Mat depthmat, double focalx, double focaly,float centerx, float centery)
 	{
 		int k = 0;
-		this->center_x = 0;
-		this->center_y = 0;
-		this->center_z = 0;
+		this->PointCloud_center_x = 0;
+		this->PointCloud_center_y = 0;
+		this->PointCloud_center_z = 0;
 
-		for (int i = 0; i < depthmat.rows; i++)
+		for (int i = 0; i < GroundTruthRoILen_X; i++)
 		{
-			for (int j = 0; j < depthmat.cols; j++)
+			for (int j = 0; j < GroundTruthRoILen_Y; j++)
 			{
-				if (depthmat.at<ushort>(i, j) != 0)
+				if (i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2 >= 0 && i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2 <= depthmat.cols - 1 && j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2 >= 0 && j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2 <= depthmat.rows - 1)
 				{
-					cv::Point3f p;
-					/*p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focal;
-					p.y = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focal;
-					p.z = -depthmat.at<ushort>(i, j);*/
+					if (depthmat.at<ushort>(j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2, i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2) != 0)
+					{
+						cv::Point3f p;
+						/*p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focal;
+						p.y = -(i - centery) * (-depthmat.at<ushort>(i, j)) / focal;
+						p.z = -depthmat.at<ushort>(i, j);*/
 
 
-					p.x = (j - centerx) * (-depthmat.at<ushort>(i, j)) / focalx;
-					p.y = (i - centery) * (-depthmat.at<ushort>(i, j)) / focaly;
-					p.z = -depthmat.at<ushort>(i, j);
+						p.x = (i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2 - centerx) * (-depthmat.at<ushort>(j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2, i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2)) / focalx;
+						p.y = (j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2 - centery) * (-depthmat.at<ushort>(j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2, i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2)) / focaly;
+						p.z = -depthmat.at<ushort>(j + GroundTruthMatCenter_Y - GroundTruthRoILen_Y / 2, i + GroundTruthMatCenter_X - GroundTruthRoILen_X / 2);
 
-					this->center_x += p.x;
-					this->center_y += p.y;
-					this->center_z += p.z;
+						this->PointCloud_center_x += p.x;
+						this->PointCloud_center_y += p.y;
+						this->PointCloud_center_z += p.z;
 
-					this->cloudpoint_vector.push_back(p);
-					this->cloudpoint[k] = p.x;
-					this->cloudpoint[k + 1] = p.y;
-					this->cloudpoint[k + 2] = p.z;
+						this->cloudpoint_vector.push_back(p);
+						this->cloudpoint[k] = p.x;
+						this->cloudpoint[k + 1] = p.y;
+						this->cloudpoint[k + 2] = p.z;
 
-					//cout << "the " << k << " point is : x  " << this->cloudpoint[k] << "  y: " << this->cloudpoint[k + 1] << " z: " << this->cloudpoint[k + 2] << endl;
-					k = k + 3;
+						//cout << "the " << k << " point is : x  " << this->cloudpoint[k] << "  y: " << this->cloudpoint[k + 1] << " z: " << this->cloudpoint[k + 2] << endl;
+						k = k + 3;
+					}
 				}
 			}
 		}
 
-		this->center_x = 3.0*this->center_x / (float)k;
-		this->center_y = 3.0*this->center_y / (float)k;
-		this->center_z = 3.0*this->center_z / (float)k;
+		this->PointCloud_center_x = 3.0*this->PointCloud_center_x / (float)k;
+		this->PointCloud_center_y = 3.0*this->PointCloud_center_y / (float)k;
+		this->PointCloud_center_z = 3.0*this->PointCloud_center_z / (float)k;
 
 	}
 
