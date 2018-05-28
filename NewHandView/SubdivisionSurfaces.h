@@ -174,11 +174,11 @@ namespace SS
 			{
 				if (t < model->weight_(i, j)) {
 					t = model->weight_(i, j);
-					idx = j;
+					idx = j;                        //以weight的最大值对应的关节点作为该顶点所属的部分
 				}
 			}
 
-			if (idx == 0 || idx ==21)
+			if (idx == 0 || idx ==21 || idx == 22)               //0和21和22分别代表手掌和手腕，前臂部分
 			{
 				_weight.push_back(1.0);
 			

@@ -29,6 +29,7 @@ struct CloudPoint {
 		delete[] cloudpointTomesh_inscribePoint;
 	}
 
+	//图片坐标中的（x,y)和Mat.at<type>(y,x)是对应的，因为Mat.at<type>(i,j)是，第i行，第j列的意思。
 	void init(cv::Mat depthmat,int center_x,int center_y,int RoI_lenx,int RoI_leny)
 	{
 		int Num_NotZeroPixel = 0;

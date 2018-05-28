@@ -356,36 +356,36 @@ namespace DS
 	void idle() {
 
         //neet to edit 如何调整手部参数
-		//if (!_handcontrol->ParamsChangeStop)
-		//{
-		//	_handcontrol->ComputeGradient();
-		//	_handcontrol->ParamsChangeUseGradient();
+		if (!_handcontrol->ParamsChangeStop)
+		{
+			_handcontrol->ComputeGradient();
+			_handcontrol->ParamsChangeUseGradient();
 
 
-		//	//_handcontrol->ParamsChangeUseGaussNewTon();
+			//_handcontrol->ParamsChangeUseGaussNewTon();
 
-		//	_handcontrol->ControlHand();
+			_handcontrol->ControlHand();
 
-		//	SS::SubdivisionTheHand(model, 0);
-		//	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+			SS::SubdivisionTheHand(model, 0);
+			_cloudpoint.Compute_Cloud_to_Mesh_Distance();
 
-		//	//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
-		//	cv::Mat generated_mat = cv::Mat::zeros(_handcontrol->_costfunction.ROI_len_y, _handcontrol->_costfunction.ROI_len_x, CV_16UC1);
-		//	projection->compute_current_orientation(model);
-		//	projection->project_3d_to_2d_when_calc(model, generated_mat);
-		//	MixShowResult(_handcontrol->_costfunction.groundtruthROIMat, generated_mat);
+			//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
+			cv::Mat generated_mat = cv::Mat::zeros(_handcontrol->_costfunction.ROI_len_y, _handcontrol->_costfunction.ROI_len_x, CV_16UC1);
+			projection->compute_current_orientation(model);
+			projection->project_3d_to_2d_when_calc(model, generated_mat);
+			MixShowResult(_handcontrol->_costfunction.groundtruthROIMat, generated_mat);
 
-		//	_handcontrol->_costfunction.ComputeCostfunction(generated_mat);
-		//	cout << "The "<<++i<<" th change !  The costfuntion is :" << _handcontrol->_costfunction.costfunction << endl;
-		//	_data.init(SS::disVertices.size(), SS::disPatches.size());
-		//	_data.SS_set(SS::disVertices, SS::disPatches);
-		//	_data.set_skeleton(model);
-		//	
-		//}
-		//else
-		//{
-		//	cout << "the costfunction meet the threshold, optimizing over ! "<<endl;
-		//}
+			_handcontrol->_costfunction.ComputeCostfunction(generated_mat);
+			cout << "The "<<++i<<" th change !  The costfuntion is :" << _handcontrol->_costfunction.costfunction << endl;
+			_data.init(SS::disVertices.size(), SS::disPatches.size());
+			_data.SS_set(SS::disVertices, SS::disPatches);
+			_data.set_skeleton(model);
+			
+		}
+		else
+		{
+			cout << "the costfunction meet the threshold, optimizing over ! "<<endl;
+		}
 
 	    glutPostRedisplay();
 	}

@@ -11,8 +11,6 @@
 
 
 void LoadgroundtruthMat(char* filename);
-float Compute_area(cv::Mat input);
-float Compute_targetFunction(float area1, cv::Mat input);
 cv::Mat generate_depthMap(Model* model, Projection *projection);
 cv::Mat generate_ROIdepthMap(Model* model, Projection *projection);
 void GenerateGroundtruth(Model* model);
@@ -40,19 +38,18 @@ void main(int argc, char** argv) {
 		_handcontrol->_costfunction.ROI_len_x, 
 		_handcontrol->_costfunction.ROI_len_y);
 
-	//_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 241.3, 160, 120);
 	_cloudpoint.DepthMatToCloudPoint(_handcontrol->_costfunction.groundtruthmat, 381.8452,382.1713, 264.0945, 217.1487);
 
 
-	projection->GroundTruthMatCenter_x = _handcontrol->_costfunction.p_center.x;
-	projection->GroundTruthMatCenter_y = _handcontrol->_costfunction.p_center.y;
-	projection->GroundTruthRoI_lenx = _handcontrol->_costfunction.ROI_len_x;
-	projection->GroundTruthRoI_leny = _handcontrol->_costfunction.ROI_len_y;
+	projection->SetGroundTruthMatInf(_handcontrol->_costfunction.p_center.x,
+		_handcontrol->_costfunction.p_center.y,
+		_handcontrol->_costfunction.ROI_len_x,
+		_handcontrol->_costfunction.ROI_len_y);
 
 	_handcontrol->SetPlam_Position(_cloudpoint.PointCloud_center_x, _cloudpoint.PointCloud_center_y, _cloudpoint.PointCloud_center_z); //使用点云的形心作为手摸的初始位置。
 
-	_handcontrol->AddNoiseToPalmRotation();
-	_handcontrol->ControlHand();
+	_handcontrol->AddNoiseToPalmRotation();      //给手的全局旋转真实值添加一个随机数作为扰动
+	_handcontrol->ControlHand(); 
 
 	SS::SubdivisionTheHand(model, 0);
 	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
@@ -71,46 +68,26 @@ void main(int argc, char** argv) {
 
 }
 
-float Compute_area(cv::Mat input)
-{
-	int HandPixelCount = 0;
-	for (int i = 0; i < input.rows; i++) {
-		for (int j = 0; j < input.cols; j++) {
-			if (input.at<ushort>(i, j) != 0)
-				HandPixelCount++;
-		}
-	}
-
-	return ((float)HandPixelCount) / (input.rows*input.cols);
-}
-
-float Compute_targetFunction(float area1, cv::Mat input)
-{
-	float area2 = Compute_area(input);
-	return abs(area1 - area2);
-}
 
 cv::Mat generate_depthMap(Model* model, Projection *projection)
 {
-	//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
 	cv::Mat generated_mat = cv::Mat::zeros(424, 512, CV_16UC1);
 	_handcontrol->ControlHand();
 
 	projection->set_color_index(model);
 	projection->compute_current_orientation(model);
-	projection->project_3d_to_2d_(model, generated_mat);
+	projection->project_3d_to_2d_(model, generated_mat);    //生成424*512大小的深度图
 	return generated_mat;
 }
 
 cv::Mat generate_ROIdepthMap(Model* model, Projection *projection)
 {
-	//cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);
 	cv::Mat generated_mat = cv::Mat::zeros(_handcontrol->_costfunction.ROI_len_y, _handcontrol->_costfunction.ROI_len_x, CV_16UC1);
 	_handcontrol->ControlHand();
 
 	projection->set_color_index(model);
 	projection->compute_current_orientation(model);
-	projection->project_3d_to_2d_when_calc(model, generated_mat);
+	projection->project_3d_to_2d_when_calc(model, generated_mat);    //生成ROI区域大小的深度图
 	return generated_mat;
 }
 
@@ -124,13 +101,10 @@ void LoadgroundtruthMat(char* filename)
 			show_depth.at<uchar>(i, j) = _handcontrol->_costfunction.groundtruthmat.at<ushort>(i, j) % 255;
 		}
 	}
-	Moments moment = moments(show_depth, true);
-	Point center(moment.m10 / moment.m00, moment.m01 / moment.m00);
-
-	//cout << center.x << "   " << center.y << endl;
-	circle(show_depth, center, 8, Scalar(255, 255, 255), CV_FILLED);
+	//Moments moment = moments(show_depth, true);
+	//Point center(moment.m10 / moment.m00, moment.m01 / moment.m00);
+	//circle(show_depth, center, 8, Scalar(255, 255, 255), CV_FILLED);
 	cv::imshow("The groundtruthMat", show_depth);
-	cv::waitKey(100);
 }
 
 void GenerateGroundtruth(Model* model)

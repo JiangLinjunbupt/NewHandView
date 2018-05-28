@@ -80,6 +80,7 @@ public:
 				float s = pow(f + 0.25*cos(2 * PI / nb.size()), 2.0) + f;
 				vp.position = vp.position*(1 - s) + v.pt.position*s;
 				vp.color = v.pt.color;
+				vp.weight = v.pt.weight;
 				new_vertices[actualSize++] = vp;
 				v.vp_index = actualSize - 1;
 			}
@@ -92,6 +93,7 @@ public:
 				vp.position = vp.position / 8.0f;
 				vp.position = vp.position + v.pt.position*0.75;
 				vp.color = v.pt.color;
+				vp.weight = v.pt.weight;
 				new_vertices[actualSize++] = vp;
 				v.vp_index = actualSize - 1;
 			}
@@ -194,6 +196,8 @@ public:
 						ep.position += vPool[it->next_pt].position + vPool[rv_he->next_pt].position;
 						ep.position /= 8.0;
 						ep.color = vPool[st].color;
+						ep.weight = (vPool[st].weight + vPool[it->ed].weight + vPool[it->next_pt].weight + vPool[rv_he->next_pt].weight) / 4.0;
+
 						vertices[actualSize++] = ep;
 						it->ep_index = rv_he->ep_index = actualSize - 1;
 
@@ -203,6 +207,7 @@ public:
 				{
 					ep.position = 0.5 * vPool[st].position + 0.5 * vPool[it->ed].position;
 					ep.color = vPool[st].color;
+					ep.weight = (vPool[st].weight + vPool[it->ed].weight)/2.0;
 					vertices[actualSize++] = ep;
 					it->ep_index = actualSize - 1;
 				}

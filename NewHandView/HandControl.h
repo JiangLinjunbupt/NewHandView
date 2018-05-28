@@ -7,7 +7,7 @@
 #include "opencv2/highgui/highgui.hpp"  
 #include "opencv2/calib3d/calib3d.hpp"  
 #include "opencv2/imgproc/imgproc_c.h"
-#include<levmar.h>
+//#include<levmar.h>
 class RotateControl
 {
 private:
@@ -77,6 +77,7 @@ public:
 	void SetRotate(float x, float y, float z) { this->rotation.SetRotateXYZ(x, y, z); }
 };
 
+
 void func(double *p, double *x, int m, int n, void *data);
 
 
@@ -113,23 +114,11 @@ public:
 		float costfunction = 10000;
 		//float gradient[24] = { 0 };
 		float gradient[27] = { 0 };
-		int rendered_silhouetteSize;
-		int groundtruth_silhouetteSize = 0;
-
-		vector<float> renderToGroundtruthMinDistance;
-		vector<float> groundtruthTorenderMinDistance;
-		float distance_renderTogroundtruth;
-		float distance_groundtruthTorender;
-		/*cv::Mat groundtruthmat = cv::Mat::zeros(240, 320, CV_16UC1);
-		cv::Mat groundtruthBinaryMat = cv::Mat::zeros(240, 320, CV_64F);*/
 
 		cv::Mat groundtruthmat = cv::Mat::zeros(424, 512, CV_16UC1);
-		cv::Mat groundtruthBinaryMat = cv::Mat::zeros(424, 512, CV_64F);
-
 		cv::Mat groundtruthROIMat = cv::Mat::zeros(ROI_len_x, ROI_len_y, CV_16UC1);
 		cv::Mat groundtruthROIBinaryMat = cv::Mat::zeros(ROI_len_x, ROI_len_y, CV_64F);
 
-		vector<Point> groundtruth_silhouette;
 		
 		void ComputeGroundtruthRoIBinaryMat()
 		{
@@ -153,8 +142,6 @@ public:
 				}
 			}
 		}
-
-
 		float ComputeMatDifference(cv::Mat rendered_Silhouette)
 		{
 			cv::Mat rendered_BinaryMat = cv::Mat::zeros(rendered_Silhouette.rows, rendered_Silhouette.cols, CV_64F);
@@ -170,14 +157,6 @@ public:
 			float difference = countNonZero(differenceMat);
 			return difference;
 		}
-		//float ComputeCostfunction2(cv::Mat rendered_Silhouette, cv::Mat groundtruth_Silhouette)
-		//{
-		//	
-		//	this->costfunction = weight1*_cloudpoint.SumDistance / _cloudpoint.num_cloudpoint + weight2*ComputeSilhouetteDifference(rendered_Silhouette, groundtruth_Silhouette);
-		//	//cout << "cloud :" << _cloudpoint.SumDistance / _cloudpoint.num_cloudpoint << "   silhuuette : " << ComputeSilhouetteDifference(rendered_Silhouette, groundtruth_Silhouette) << endl;
-		//	return this->costfunction;
-		//}
-
 		float ComputeCostfunction(cv::Mat rendered_Silhouette)
 		{
 
@@ -438,65 +417,7 @@ public:
 	}
 	//根据梯度，或者牛顿高斯法改变参数，只改变大小，全局位置，和手指长度（sacle, position ,trans)
 
-	void ParamsChangeUseLevmar()
-	{
-		int ret;
-		const int m = 1;
-		int n = 0*_cloudpoint.num_cloudpoint*3 + _costfunction.groundtruthmat.rows * _costfunction.groundtruthmat.cols;
-		//int n = model->num_vertices_*3;
-		//int n = _cloudpoint.num_cloudpoint * 3;
-		double *x,*p;
-		x = new double[n];
-		p = new double[m];
-		double opts[LM_OPTS_SZ], info[LM_INFO_SZ];
 
-		opts[0] = LM_INIT_MU; opts[1] = 1E-15; opts[2] = 1E-15; opts[3] = 1E-20;
-		opts[4] = 0.1;
-
-		//for (int i = 0; i < _cloudpoint.num_cloudpoint*3; i++)
-		//{
-		//	x[i] = _cloudpoint.cloudpoint[i];
-		//}
-
-		for (int i = 0; i < _costfunction.groundtruthBinaryMat.rows; i++)
-		{
-			for (int j = 0; j < _costfunction.groundtruthBinaryMat.cols; j++)
-			{
-				x[0*_cloudpoint.num_cloudpoint * 3 + _costfunction.groundtruthBinaryMat.cols*i + j] = _costfunction.groundtruthBinaryMat.at<double>(i, j);
-			}
-		}
-
-		this->RandomScale();
-		this->ParamsToMat();
-		this->ControlHand();
-
-
-		cout << "this original params is ..... " << endl;
-		//for (int i = 0; i < m; i++)
-		//{
-		//	p[i] = this->paramsOfhand[i];
-		//	cout << this->paramsOfhand[i] << endl;
-		//}
-		p[0] = this->palm.Getplamscale();
-		cout << p[0];
-		cout << endl;
-		cout << endl;
-
-
-		ret = dlevmar_dif(func, p, x, m, n, 1000,opts, info, NULL, NULL,NULL);
-
-		printf("Levenberg-Marquardt returned in %g iter, reason %g, sumsq %g [%g]\n", info[5], info[6], info[1], info[0]);
-
-		cout << "the optimizing params is ....." << endl;
-		//for (int i = 0; i < m; i++)
-		//{
-		//	cout << p[i] << endl;
-		//}
-		cout << p[0];
-		cout << endl;
-		cout << endl;
-		
-	}
 	void ParamsChangeUseGradient()
 	{
 
@@ -504,7 +425,6 @@ public:
 		//this->palm_position.x = this->palm_position.x - _costfunction.step * _costfunction.gradient[0];
 		//this->palm_position.y = this->palm_position.y - _costfunction.step * _costfunction.gradient[1];
 		//this->palm_position.z = this->palm_position.z - _costfunction.step * _costfunction.gradient[2];
-
 		//this->palm.Setpalmscale(this->palm.Getplamscale() - _costfunction.step * _costfunction.gradient[3]);
 		//
   //      
@@ -515,21 +435,13 @@ public:
 		//	this->fingers[i].SetTrans(this->fingers[i].GetTrans()[1].GettransX() - _costfunction.trans_step * _costfunction.gradient[3 + i * 4 + 3], 1);
 		//	this->fingers[i].SetTrans(this->fingers[i].GetTrans()[2].GettransX() - _costfunction.trans_step * _costfunction.gradient[3 + i * 4 + 4], 2);
 		//}
-
-
 		//this->LimitedPalmScale();
 		//this->LimitedfingerScale();
 		//this->LimitedfingerLength();
 
 
-
-
-
-
 		//先把参数存起来
 		this->ParamsToMat();
-
-
 		float costfunction, mincostfunction = FLT_MAX;
 		int minindex;
 
@@ -578,379 +490,267 @@ public:
 			{
 				JudgeGradient[i] = _costfunction.steparry[minindex] * 50 * _costfunction.gradient[i];
 			}
-
 			if (abs(JudgeGradient[i]) > 0.001)
 			{
 				this->ParamsChangeStop = false;
 			}
 		}
-
-
 	}
 
 
-	//this function only adjust the palmScale
-	void ParamsChangeUsingGN()
-	{
-		Mat outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-
-		for (int i = 0; i < _costfunction.groundtruthBinaryMat.rows; i++)
-		{
-			for (int j = 0; j < _costfunction.groundtruthBinaryMat.cols; j++)
-			{
-				outputs.at<float>(i* _costfunction.groundtruthBinaryMat.cols + j, 0) = _costfunction.groundtruthBinaryMat.at<double>(i, j);
-			}
-		}
-
-		
-		float Params = 1.5;
-
-		for (int itr = 0; itr < 100; itr++)
-		{
-			Mat residual(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-			Mat Fun_outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-			Mat Fun_outputs_delta(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-			Mat Jacobian(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-
-
-			//先算Fun_outputs
-			this->palm.Setpalmscale(Params);
-			this->ControlHand();
-			cv::Mat generated_mat_outputs = cv::Mat::zeros(240, 320, CV_16UC1);
-			projection->compute_current_orientation(model);
-			projection->project_3d_to_2d_(model, generated_mat_outputs);
-			cv::Mat generated_mat_outputs_Binary = cv::Mat::zeros(240, 320, CV_64F);
-			for (int i = 0; i < generated_mat_outputs.rows; i++)
-			{
-				for (int j = 0; j < generated_mat_outputs.cols; j++)
-				{
-					if (generated_mat_outputs.at<ushort>(i, j) != 0)
-					{
-						generated_mat_outputs_Binary.at<double>(i, j) = 1;
-					}
-				}
-			}
-			
-			for (int i = 0; i <generated_mat_outputs_Binary.rows; i++)
-			{
-				for (int j = 0; j < generated_mat_outputs_Binary.cols; j++)
-				{
-					Fun_outputs.at<float>(i* generated_mat_outputs_Binary.cols + j, 0) = generated_mat_outputs_Binary.at<double>(i, j);
-				}
-			}
-			//cout << countNonZero(Fun_outputs) << endl;
-
-			//然后计算residual
-			for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-			{
-				residual.at<float>(i, 0) = Fun_outputs.at<float>(i, 0) - outputs.at<float>(i, 0);
-				
-			}
-			
-			//cout << countNonZero(residual) << endl;
-			//然后算 Params + delta之后的Fun_outputs
-			this->palm.Setpalmscale(Params + 0.01);
-			this->ControlHand();
-			cv::Mat generated_mat_outputs_delta = cv::Mat::zeros(240, 320, CV_16UC1);
-			projection->compute_current_orientation(model);
-			projection->project_3d_to_2d_(model, generated_mat_outputs_delta);
-			cv::Mat generated_mat_outputs_delta_Binary = cv::Mat::zeros(240, 320, CV_64F);
-			for (int i = 0; i < generated_mat_outputs_delta.rows; i++)
-			{
-				for (int j = 0; j < generated_mat_outputs_delta.cols; j++)
-				{
-					if (generated_mat_outputs_delta.at<ushort>(i, j) != 0)
-					{
-						generated_mat_outputs_delta_Binary.at<double>(i, j) = 1;
-					}
-				}
-			}
-			for (int i = 0; i <generated_mat_outputs_delta_Binary.rows; i++)
-			{
-				for (int j = 0; j < generated_mat_outputs_delta_Binary.cols; j++)
-				{
-					Fun_outputs_delta.at<float>(i* generated_mat_outputs_Binary.cols + j, 0) = generated_mat_outputs_delta_Binary.at<double>(i, j);
-				}
-			}
-			//cout << countNonZero(Fun_outputs_delta) << endl;
-
-			//然后计算Jacobian
-			for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-			{
-				Jacobian.at<float>(i, 0) = (Fun_outputs_delta.at<float>(i, 0) - Fun_outputs.at<float>(i, 0)) / 0.01;
-			}
-
-			//这一步是成功的关键！！！！
-			//由于是采用前向差分计算的jacobian行列式，所以这里必须更新residual =（f(x+delta) + f(x) - 2*I)，
-			//若继续使用residual = (f(x) - I)会造成Jacobian.t()*residual是全零的情况，具体原因我还没分析出来~
-
-			//tomorrow work:  如果有多个自变量，比如24个params那么，要分别算每一个的J和每一个的residual,不能共用一个residual,然后组合成一个列向量,
-			//或者其他的组合，明天在进行相关的尝试
-			for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-			{
-				residual.at<float>(i, 0) = residual.at<float>(i, 0) + Fun_outputs_delta.at<float>(i,0) - outputs.at<float>(i, 0);
-
-			}
-
-			//cout << countNonZero(Jacobian) << endl;
-			//然后计算调整的delta
-
-			//cout << Jacobian.t()*Jacobian << endl;
-			//cout << ((Jacobian.t()*Jacobian)).inv() << endl;
-			//cout << Jacobian.t() << endl;
-			cout << "the " << itr << "th result is: " << endl;
-			cout << Jacobian.t()*residual << endl;
-			Mat delta = ((Jacobian.t()*Jacobian)).inv() * Jacobian.t()*residual;
-			
-			//Mat delta = Jacobian.t()*residual;
-
-			cout << "delta is :"<<delta << endl;
-			//然后根据delta改变Params
-			Params = Params - delta.at<float>(0,0);
-
-			cout << "params is:  "<<Params << endl;
-			cout << endl << endl;
-
-			if (abs(delta.at<float>(0, 0)) < 0.001)
-			{
-				break;
-			}
-
-		}
-
-	}
-
-
-	void ALLParamsChangeUsingGN()
-	{
-		Mat outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-
-		for (int i = 0; i < _costfunction.groundtruthBinaryMat.rows; i++)
-		{
-			for (int j = 0; j < _costfunction.groundtruthBinaryMat.cols; j++)
-			{
-				outputs.at<float>(i* _costfunction.groundtruthBinaryMat.cols + j, 0) = _costfunction.groundtruthBinaryMat.at<double>(i, j);
-			}
-		}
-
-		this->RandomScaleAndTransParams_justlittle();
-
-		cout << "the original params is :  " << endl;
-		for (int i = 0; i < this->paramsSize; i++)
-		{
-			cout << this->paramsOfhand[i] << endl;
-		}
-		cout << endl;
-		//this->RandomScale();
-
-		for (int itr = 0; itr < 100; itr++)
-		{
-			//整体的雅各比行列式
-			Mat Jacobian(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, this->paramsSize, CV_32F);
-			//整体的梯度
-			Mat Gradient(this->paramsSize,1, CV_32F);
-			//某一个变量的雅各比行列式
-			Mat OneDimension_Jacobian(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-			//某一个参数改变对应的输出，用于差分求导数
-			Mat Fun_outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-			Mat Fun_outputs_delta(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-			//residual
-			Mat residual(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
-
-			Mat OneDimensionDelta = Mat::zeros(this->paramsSize,1, CV_32F);
-
-
-			this->Function_Outputs(Fun_outputs);
-
-
-			for (int paramsInt = 0; paramsInt <this->paramsSize; paramsInt++)
-			{
-				if ((paramsInt == 0) || (paramsInt == 4) || (paramsInt == 8) || (paramsInt == 12) || (paramsInt == 16) || (paramsInt == 20)) //如果参数代表scale,那么使用差分计算偏导的时候，使用delta = 0.01
-				{
-					this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] + 0.01;
-				}
-				else  //如果代表长度，那么使用差分法计算偏导的时候，delta选择0.1
-				{
-					this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] + 0.5;
-				}
-
-
-				this->Function_Outputs(Fun_outputs_delta);
-
-
-				//下面是把参数还原，因为上面为了使用差分法计算偏导，加了一个delta
-				if ((paramsInt == 0) || (paramsInt == 4) || (paramsInt == 8) || (paramsInt == 12) || (paramsInt == 16) || (paramsInt == 20)) //如果参数代表scale,那么使用差分计算偏导的时候，使用delta = 0.01
-				{
-					this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] - 0.01;
-				}
-				else  //如果代表长度，那么使用差分法计算偏导的时候，delta选择0.1
-				{
-					this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] - 0.5;
-				}
-
-				this->ComputeResidual(outputs, Fun_outputs, Fun_outputs_delta, residual);
-				this->ComputeOneDimensionJacobian(paramsInt, Fun_outputs, Fun_outputs_delta, OneDimension_Jacobian);
-
-
-				Mat D = (2*(OneDimension_Jacobian.t()*OneDimension_Jacobian)).inv() * OneDimension_Jacobian.t()*residual;
-				//cout << D.at<float>(0, 0) << endl;
-				OneDimensionDelta.at<float>(paramsInt, 0) = D.at<float>(0, 0);
-				//cout << OneDimensionDelta.at<float>(paramsInt, 0) << endl;
-				for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-				{
-					Jacobian.at<float>(i, paramsInt) = OneDimension_Jacobian.at<float>(i, 0);
-				}
-
-				Mat OneDimensionGradient = OneDimension_Jacobian.t()*residual;
-				//cout << OneDimensionGradient << endl;
-				Gradient.at<float>(paramsInt, 0) = OneDimensionGradient.at<float>(0, 0);
-
-			}
-
-
-			Mat delta = (2*(Jacobian.t()*Jacobian)).inv() * Gradient;
-
-
-			cout << "the " << itr << " th iteration :   the Params Changed is :  " << endl;
-			for (int i = 0; i < this->paramsSize; i++)
-			{
-				//this->paramsOfhand[i] = this->paramsOfhand[i] - delta.at<float>(i, 0);
-				this->paramsOfhand[i] = this->paramsOfhand[i] - OneDimensionDelta.at<float>(i,0);
-				cout << this->paramsOfhand[i] << endl;
-			}
-
-			this->MatToParams();
-			this->LimitedPalmScale();
-			this->LimitedfingerScale();
-			this->LimitedfingerLength();
-			this->ParamsToMat();
-
-			cout << endl;
-			
-		}
-	}
-
-	void Function_Outputs(Mat &func_outputs)
-	{
-		this->MatToParams();
-		this->ControlHand();
-
-		//cv::Mat generated_mat_outputs = cv::Mat::zeros(240, 320, CV_16UC1);
-
-		cv::Mat generated_mat_outputs = cv::Mat::zeros(424, 512, CV_16UC1);
-		projection->compute_current_orientation(model);
-		projection->project_3d_to_2d_(model, generated_mat_outputs);
-		//cv::Mat generated_mat_outputs_Binary = cv::Mat::zeros(240, 320, CV_64F);
-		cv::Mat generated_mat_outputs_Binary = cv::Mat::zeros(424, 512, CV_64F);
-		for (int i = 0; i < generated_mat_outputs.rows; i++)
-		{
-			for (int j = 0; j < generated_mat_outputs.cols; j++)
-			{
-				if (generated_mat_outputs.at<ushort>(i, j) != 0)
-				{
-					generated_mat_outputs_Binary.at<double>(i, j) = 1;
-				}
-			}
-		}
-		for (int i = 0; i <generated_mat_outputs_Binary.rows; i++)
-		{
-			for (int j = 0; j < generated_mat_outputs_Binary.cols; j++)
-			{
-				func_outputs.at<float>(i* generated_mat_outputs_Binary.cols + j, 0) = generated_mat_outputs_Binary.at<double>(i, j);
-			}
-		}
-
-	}
-
-	void ComputeResidual(const Mat &outputs,const Mat &func_outputs,const Mat &func_outputs_delta,Mat &residual )
-	{
-		for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-		{
-			residual.at<float>(i, 0) = func_outputs.at<float>(i,0) + func_outputs_delta.at<float>(i, 0) - 2*outputs.at<float>(i, 0);
-		}
-	}
-
-	void ComputeOneDimensionJacobian(int index, const Mat &func_outputs, const Mat &func_outputs_delta, Mat &OneDimJacobian)
-	{
-		if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20)) //如果参数代表scale,那么计算差分计算偏导的时候，使用delta = 0.01
-		{
-			for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-			{
-				OneDimJacobian.at<float>(i, 0) = (func_outputs_delta.at<float>(i, 0) - func_outputs.at<float>(i, 0)) / 0.01;
-			}
-		}
-		else
-		{
-			for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
-			{
-				OneDimJacobian.at<float>(i, 0) = (func_outputs_delta.at<float>(i, 0) - func_outputs.at<float>(i, 0)) / 0.5;
-			}
-		}
-	}
-	//void ParamsChangeUseGaussNewTon()
+	////this function only adjust the palmScale
+	//void ParamsChangeUsingGN()
 	//{
-	//	//这里注意 创建Mat的时候是CV_32F， 则.at<float>这里用float，如果是CV_64F ，则必须用double，不然会出错
-	//	Mat r_cloudPoint(_cloudpoint.num_cloudpoint, 1, CV_32F); // residual matrix  
-	//	Mat r_silhouette(_costfunction.groundtruth_silhouetteSize,1,CV_32F);
-	//	Mat r_3(1, 1, CV_32F);
-	//	this->ComputeResidual(r_cloudPoint, r_silhouette,r_3);
-
-
-	//	Mat Jf_cloudpoint(_cloudpoint.num_cloudpoint, this->paramsSize, CV_32F); // Jacobian of Func()  
-	//	Mat Jf_silhouette(_costfunction.groundtruth_silhouetteSize, this->paramsSize, CV_32F); // Jacobian of Func()  
-	//	Mat Jf_3(1, this->paramsSize, CV_32F);// Jacobian of Func()  
-	//	Mat E = cv::Mat::eye(this->paramsSize, this->paramsSize, CV_32F);
-
-	//	for (int i = 0; i < Jf_cloudpoint.cols; i++)
+	// //这里注意 创建Mat的时候是CV_32F， 则.at<float>这里用float，如果是CV_64F ，则必须用double，不然会出错
+	//	Mat outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//	for (int i = 0; i < _costfunction.groundtruthBinaryMat.rows; i++)
 	//	{
-	//		Mat r_cloud_1(_cloudpoint.num_cloudpoint, 1, CV_32F);
-	//		Mat r_cloud_2(_cloudpoint.num_cloudpoint, 1, CV_32F);
-	//		this->ComputeCloudPointJacobian(r_cloud_1, r_cloud_2, i);
-
-	//		for (int j = 0; j < Jf_cloudpoint.rows; j++)
+	//		for (int j = 0; j < _costfunction.groundtruthBinaryMat.cols; j++)
 	//		{
-	//			//cout << r_cloud_2.at<float>(j, 0) << endl;
-	//			Jf_cloudpoint.at<float>(j, i) = r_cloud_2.at<float>(j, 0) / _cloudpoint.num_cloudpoint;
+	//			outputs.at<float>(i* _costfunction.groundtruthBinaryMat.cols + j, 0) = _costfunction.groundtruthBinaryMat.at<double>(i, j);
 	//		}
-
 	//	}
-
-	//	for (int i = 0; i < Jf_silhouette.cols; i++)
+	//	
+	//	float Params = 1.5;
+	//	for (int itr = 0; itr < 100; itr++)
 	//	{
-	//		Mat r_silh_1(_costfunction.groundtruth_silhouetteSize, 1, CV_32F);
-	//		Mat r_silh_2(_costfunction.groundtruth_silhouetteSize, 1, CV_32F);
-	//		this->ComputeSilhouetteJacobian(r_silh_1, r_silh_2, i);
-
-	//		for (int j = 0; j < Jf_silhouette.rows; j++)
+	//		Mat residual(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		Mat Fun_outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		Mat Fun_outputs_delta(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		Mat Jacobian(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		//先算Fun_outputs
+	//		this->palm.Setpalmscale(Params);
+	//		this->ControlHand();
+	//		cv::Mat generated_mat_outputs = cv::Mat::zeros(240, 320, CV_16UC1);
+	//		projection->compute_current_orientation(model);
+	//		projection->project_3d_to_2d_(model, generated_mat_outputs);
+	//		cv::Mat generated_mat_outputs_Binary = cv::Mat::zeros(240, 320, CV_64F);
+	//		for (int i = 0; i < generated_mat_outputs.rows; i++)
 	//		{
-	//			Jf_silhouette.at<float>(j, i) = r_silh_2.at<float>(j, 0) /_costfunction.groundtruth_silhouetteSize;
+	//			for (int j = 0; j < generated_mat_outputs.cols; j++)
+	//			{
+	//				if (generated_mat_outputs.at<ushort>(i, j) != 0)
+	//				{
+	//					generated_mat_outputs_Binary.at<double>(i, j) = 1;
+	//				}
+	//			}
 	//		}
-
+	//		
+	//		for (int i = 0; i <generated_mat_outputs_Binary.rows; i++)
+	//		{
+	//			for (int j = 0; j < generated_mat_outputs_Binary.cols; j++)
+	//			{
+	//				Fun_outputs.at<float>(i* generated_mat_outputs_Binary.cols + j, 0) = generated_mat_outputs_Binary.at<double>(i, j);
+	//			}
+	//		}
+	//		//cout << countNonZero(Fun_outputs) << endl;
+	//		//然后计算residual
+	//		for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//		{
+	//			residual.at<float>(i, 0) = Fun_outputs.at<float>(i, 0) - outputs.at<float>(i, 0);
+	//			
+	//		}
+	//		
+	//		//cout << countNonZero(residual) << endl;
+	//		//然后算 Params + delta之后的Fun_outputs
+	//		this->palm.Setpalmscale(Params + 0.01);
+	//		this->ControlHand();
+	//		cv::Mat generated_mat_outputs_delta = cv::Mat::zeros(240, 320, CV_16UC1);
+	//		projection->compute_current_orientation(model);
+	//		projection->project_3d_to_2d_(model, generated_mat_outputs_delta);
+	//		cv::Mat generated_mat_outputs_delta_Binary = cv::Mat::zeros(240, 320, CV_64F);
+	//		for (int i = 0; i < generated_mat_outputs_delta.rows; i++)
+	//		{
+	//			for (int j = 0; j < generated_mat_outputs_delta.cols; j++)
+	//			{
+	//				if (generated_mat_outputs_delta.at<ushort>(i, j) != 0)
+	//				{
+	//					generated_mat_outputs_delta_Binary.at<double>(i, j) = 1;
+	//				}
+	//			}
+	//		}
+	//		for (int i = 0; i <generated_mat_outputs_delta_Binary.rows; i++)
+	//		{
+	//			for (int j = 0; j < generated_mat_outputs_delta_Binary.cols; j++)
+	//			{
+	//				Fun_outputs_delta.at<float>(i* generated_mat_outputs_Binary.cols + j, 0) = generated_mat_outputs_delta_Binary.at<double>(i, j);
+	//			}
+	//		}
+	//		//cout << countNonZero(Fun_outputs_delta) << endl;
+	//		//然后计算Jacobian
+	//		for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//		{
+	//			Jacobian.at<float>(i, 0) = (Fun_outputs_delta.at<float>(i, 0) - Fun_outputs.at<float>(i, 0)) / 0.01;
+	//		}
+	//		//这一步是成功的关键！！！！
+	//		//由于是采用前向差分计算的jacobian行列式，所以这里必须更新residual =（f(x+delta) + f(x) - 2*I)，
+	//		//若继续使用residual = (f(x) - I)会造成Jacobian.t()*residual是全零的情况，具体原因我还没分析出来~
+	//		//tomorrow work:  如果有多个自变量，比如24个params那么，要分别算每一个的J和每一个的residual,不能共用一个residual,然后组合成一个列向量,
+	//		//或者其他的组合，明天在进行相关的尝试
+	//		for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//		{
+	//			residual.at<float>(i, 0) = residual.at<float>(i, 0) + Fun_outputs_delta.at<float>(i,0) - outputs.at<float>(i, 0);
+	//		}
+	//		//cout << countNonZero(Jacobian) << endl;
+	//		//然后计算调整的delta
+	//		//cout << Jacobian.t()*Jacobian << endl;
+	//		//cout << ((Jacobian.t()*Jacobian)).inv() << endl;
+	//		//cout << Jacobian.t() << endl;
+	//		cout << "the " << itr << "th result is: " << endl;
+	//		cout << Jacobian.t()*residual << endl;
+	//		Mat delta = ((Jacobian.t()*Jacobian)).inv() * Jacobian.t()*residual;
+	//		
+	//		//Mat delta = Jacobian.t()*residual;
+	//		cout << "delta is :"<<delta << endl;
+	//		//然后根据delta改变Params
+	//		Params = Params - delta.at<float>(0,0);
+	//		cout << "params is:  "<<Params << endl;
+	//		cout << endl << endl;
+	//		if (abs(delta.at<float>(0, 0)) < 0.001)
+	//		{
+	//			break;
+	//		}
 	//	}
-
-	//	for (int i = 0; i < Jf_3.cols; i++)
+	//}
+	//void ALLParamsChangeUsingGN()
+	//{
+	//	Mat outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//	for (int i = 0; i < _costfunction.groundtruthBinaryMat.rows; i++)
 	//	{
-	//		Jf_3.at<float>(0, i) = this->ComputeJ_3(i);
+	//		for (int j = 0; j < _costfunction.groundtruthBinaryMat.cols; j++)
+	//		{
+	//			outputs.at<float>(i* _costfunction.groundtruthBinaryMat.cols + j, 0) = _costfunction.groundtruthBinaryMat.at<double>(i, j);
+	//		}
 	//	}
-
-	//	//Mat delta = ((Jf_cloudpoint.t()*Jf_cloudpoint) + (Jf_silhouette.t()*Jf_silhouette) + (Jf_3.t()*Jf_3)).inv() * ((Jf_cloudpoint.t()*r_cloudPoint) + (Jf_silhouette.t()*r_silhouette) + (Jf_3.t()*r_3));
-	//	Mat delta = ((Jf_cloudpoint.t()*Jf_cloudpoint) + (Jf_silhouette.t()*Jf_silhouette)).inv() * ((Jf_cloudpoint.t()*r_cloudPoint) + (Jf_silhouette.t()*r_silhouette));
-	//	//Mat delta = (Jf_cloudpoint.t()*Jf_cloudpoint).inv()*(Jf_cloudpoint.t()*r_cloudPoint);
-	//	//Mat delta = ((Jf_3.t()*Jf_3)).inv() * ((Jf_3.t()*r_3));
-	//	this->paramsOfhand = this->paramsOfhand + delta;
-	//	this->MatToParams();
-
-	//	this->LimitedPalmScale();
-	//	this->LimitedfingerScale();
-	//	this->LimitedfingerLength();
+	//	this->RandomScaleAndTransParams_justlittle();
+	//	cout << "the original params is :  " << endl;
+	//	for (int i = 0; i < this->paramsSize; i++)
+	//	{
+	//		cout << this->paramsOfhand[i] << endl;
+	//	}
 	//	cout << endl;
-	//	cout << "PARAMS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
-	//	cout << "the paras Mat is :  " << paramsOfhand << endl;
-	//	cout << "end PARAMS ." << endl;
-	//	cout << endl;
-	//	this->ControlHand();
+	//	//this->RandomScale();
+	//	for (int itr = 0; itr < 100; itr++)
+	//	{
+	//		//整体的雅各比行列式
+	//		Mat Jacobian(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, this->paramsSize, CV_32F);
+	//		//整体的梯度
+	//		Mat Gradient(this->paramsSize,1, CV_32F);
+	//		//某一个变量的雅各比行列式
+	//		Mat OneDimension_Jacobian(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		//某一个参数改变对应的输出，用于差分求导数
+	//		Mat Fun_outputs(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		Mat Fun_outputs_delta(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		//residual
+	//		Mat residual(_costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows, 1, CV_32F);
+	//		Mat OneDimensionDelta = Mat::zeros(this->paramsSize,1, CV_32F);
+	//		this->Function_Outputs(Fun_outputs);
+	//		for (int paramsInt = 0; paramsInt <this->paramsSize; paramsInt++)
+	//		{
+	//			if ((paramsInt == 0) || (paramsInt == 4) || (paramsInt == 8) || (paramsInt == 12) || (paramsInt == 16) || (paramsInt == 20)) //如果参数代表scale,那么使用差分计算偏导的时候，使用delta = 0.01
+	//			{
+	//				this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] + 0.01;
+	//			}
+	//			else  //如果代表长度，那么使用差分法计算偏导的时候，delta选择0.1
+	//			{
+	//				this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] + 0.5;
+	//			}
+	//			this->Function_Outputs(Fun_outputs_delta);
+	//			//下面是把参数还原，因为上面为了使用差分法计算偏导，加了一个delta
+	//			if ((paramsInt == 0) || (paramsInt == 4) || (paramsInt == 8) || (paramsInt == 12) || (paramsInt == 16) || (paramsInt == 20)) //如果参数代表scale,那么使用差分计算偏导的时候，使用delta = 0.01
+	//			{
+	//				this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] - 0.01;
+	//			}
+	//			else  //如果代表长度，那么使用差分法计算偏导的时候，delta选择0.1
+	//			{
+	//				this->paramsOfhand[paramsInt] = this->paramsOfhand[paramsInt] - 0.5;
+	//			}
+	//			this->ComputeResidual(outputs, Fun_outputs, Fun_outputs_delta, residual);
+	//			this->ComputeOneDimensionJacobian(paramsInt, Fun_outputs, Fun_outputs_delta, OneDimension_Jacobian);
+	//			Mat D = (2*(OneDimension_Jacobian.t()*OneDimension_Jacobian)).inv() * OneDimension_Jacobian.t()*residual;
+	//			//cout << D.at<float>(0, 0) << endl;
+	//			OneDimensionDelta.at<float>(paramsInt, 0) = D.at<float>(0, 0);
+	//			//cout << OneDimensionDelta.at<float>(paramsInt, 0) << endl;
+	//			for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//			{
+	//				Jacobian.at<float>(i, paramsInt) = OneDimension_Jacobian.at<float>(i, 0);
+	//			}
+	//			Mat OneDimensionGradient = OneDimension_Jacobian.t()*residual;
+	//			//cout << OneDimensionGradient << endl;
+	//			Gradient.at<float>(paramsInt, 0) = OneDimensionGradient.at<float>(0, 0);
+	//		}
+	//		Mat delta = (2*(Jacobian.t()*Jacobian)).inv() * Gradient;
+	//		cout << "the " << itr << " th iteration :   the Params Changed is :  " << endl;
+	//		for (int i = 0; i < this->paramsSize; i++)
+	//		{
+	//			//this->paramsOfhand[i] = this->paramsOfhand[i] - delta.at<float>(i, 0);
+	//			this->paramsOfhand[i] = this->paramsOfhand[i] - OneDimensionDelta.at<float>(i,0);
+	//			cout << this->paramsOfhand[i] << endl;
+	//		}
+	//		this->MatToParams();
+	//		this->LimitedPalmScale();
+	//		this->LimitedfingerScale();
+	//		this->LimitedfingerLength();
+	//		this->ParamsToMat();
+	//		cout << endl;
+	//		
+	//	}
 	//}
 
+	//void Function_Outputs(Mat &func_outputs)
+	//{
+	//	this->MatToParams();
+	//	this->ControlHand();
+	//	//cv::Mat generated_mat_outputs = cv::Mat::zeros(240, 320, CV_16UC1);
+	//	cv::Mat generated_mat_outputs = cv::Mat::zeros(424, 512, CV_16UC1);
+	//	projection->compute_current_orientation(model);
+	//	projection->project_3d_to_2d_(model, generated_mat_outputs);
+	//	//cv::Mat generated_mat_outputs_Binary = cv::Mat::zeros(240, 320, CV_64F);
+	//	cv::Mat generated_mat_outputs_Binary = cv::Mat::zeros(424, 512, CV_64F);
+	//	for (int i = 0; i < generated_mat_outputs.rows; i++)
+	//	{
+	//		for (int j = 0; j < generated_mat_outputs.cols; j++)
+	//		{
+	//			if (generated_mat_outputs.at<ushort>(i, j) != 0)
+	//			{
+	//				generated_mat_outputs_Binary.at<double>(i, j) = 1;
+	//			}
+	//		}
+	//	}
+	//	for (int i = 0; i <generated_mat_outputs_Binary.rows; i++)
+	//	{
+	//		for (int j = 0; j < generated_mat_outputs_Binary.cols; j++)
+	//		{
+	//			func_outputs.at<float>(i* generated_mat_outputs_Binary.cols + j, 0) = generated_mat_outputs_Binary.at<double>(i, j);
+	//		}
+	//	}
+	//}
+
+	//void ComputeResidual(const Mat &outputs,const Mat &func_outputs,const Mat &func_outputs_delta,Mat &residual )
+	//{
+	//	for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//	{
+	//		residual.at<float>(i, 0) = func_outputs.at<float>(i,0) + func_outputs_delta.at<float>(i, 0) - 2*outputs.at<float>(i, 0);
+	//	}
+	//}
+	//void ComputeOneDimensionJacobian(int index, const Mat &func_outputs, const Mat &func_outputs_delta, Mat &OneDimJacobian)
+	//{
+	//	if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20)) //如果参数代表scale,那么计算差分计算偏导的时候，使用delta = 0.01
+	//	{
+	//		for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//		{
+	//			OneDimJacobian.at<float>(i, 0) = (func_outputs_delta.at<float>(i, 0) - func_outputs.at<float>(i, 0)) / 0.01;
+	//		}
+	//	}
+	//	else
+	//	{
+	//		for (int i = 0; i < _costfunction.groundtruthBinaryMat.cols*_costfunction.groundtruthBinaryMat.rows; i++)
+	//		{
+	//			OneDimJacobian.at<float>(i, 0) = (func_outputs_delta.at<float>(i, 0) - func_outputs.at<float>(i, 0)) / 0.5;
+	//		}
+	//	}
+	//}
+	
 
 	//计算梯度
 	float ComputePalmPositionXGradient()
@@ -1287,206 +1087,6 @@ public:
 	}
 
 
-	//计算点云的残差和轮廓的残差
-	//void ComputeResidual(Mat &r_cloud,Mat &r_sil,Mat &r_3)
-	//{
-	//	this->ControlHand();
-	//	SS::SubdivisionTheHand(model, 0);
-	//	cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//	projection->compute_current_orientation(model);
-	//	projection->project_3d_to_2d_(model, generated_mat);
-
-	//	_costfunction.ComputeSilhouetteDifference(generated_mat, _costfunction.groundtruthmat);
-	//	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-
-	//	r_3.at<float>(0, 0) = _costfunction.distance_renderTogroundtruth;
-	//	for (int i = 0; i < r_sil.rows; i++)
-	//	{
-	//		r_sil.at<float>(i, 0) = 0.5*_costfunction.groundtruthTorenderMinDistance[i]/_costfunction.groundtruth_silhouetteSize;
-	//	}
-	//	for (int i = 0; i < r_cloud.rows; i++)
-	//	{
-	//		r_cloud.at<float>(i, 0) = 0.5*_cloudpoint.cloudpointTomesh_minDistance[i]/_cloudpoint.num_cloudpoint;
-	//	}
-
-	//}
-	//void ComputeCloudPointJacobian(Mat &m1,Mat &m2,int index)
-	//{
-	//	this->ParamsToMat();
-	//	float save = this->paramsOfhand.at<float>(index, 0);
-	//	if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20) || (index == 24))
-	//	{
-	//		this->paramsOfhand.at<float>(index, 0) = save + 0.1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		SS::SubdivisionTheHand(model, 0);
-	//		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-	//		for (int i = 0; i < m1.rows; i++)
-	//		{
-	//			m1.at<float>(i,0) = _cloudpoint.cloudpointTomesh_minDistance[i];
-	//		}
-
-	//		this->paramsOfhand.at<float>(index, 0) = save - 0.1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		SS::SubdivisionTheHand(model, 0);
-	//		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-	//		for (int i = 0; i < m2.rows; i++)
-	//		{
-	//			m2.at<float>(i, 0) = (m1.at<float>(i,0) -_cloudpoint.cloudpointTomesh_minDistance[i])/0.2;
-	//		}
-	//		this->paramsOfhand.at<float>(index, 0) = save;
-	//		
-	//	}
-	//	else
-	//	{
-	//		this->paramsOfhand.at<float>(index, 0) = save + 1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		SS::SubdivisionTheHand(model, 0);
-	//		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-	//		for (int i = 0; i < m1.rows; i++)
-	//		{
-	//			m1.at<float>(i, 0) = _cloudpoint.cloudpointTomesh_minDistance[i];
-	//		}
-
-	//		this->paramsOfhand.at<float>(index, 0) = save - 1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		SS::SubdivisionTheHand(model, 0);
-	//		_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-	//		for (int i = 0; i < m2.rows; i++)
-	//		{
-	//			m2.at<float>(i, 0) = (m1.at<float>(i, 0) - _cloudpoint.cloudpointTomesh_minDistance[i]) / 2.0;
-	//		}
-	//		this->paramsOfhand.at<float>(index, 0) = save;
-	//		
-	//	}
-	//	this->MatToParams();
-	//}
-	//void ComputeSilhouetteJacobian(Mat &m1,Mat &m2,int index)
-	//{
-	//	this->ParamsToMat();
-	//	float save = this->paramsOfhand.at<float>(index, 0);
-	//	if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20))
-	//	{
-	//		this->paramsOfhand.at<float>(index, 0) = save + 0.1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat1);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat1, _costfunction.groundtruthmat);
-
-	//		for (int i = 0; i < m1.rows; i++)
-	//		{
-	//			m1.at<float>(i, 0) = _costfunction.groundtruthTorenderMinDistance[i];
-	//		}
-
-	//		this->paramsOfhand.at<float>(index, 0) = save - 0.1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat2);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat2, _costfunction.groundtruthmat);
-
-	//		for (int i = 0; i < m2.rows; i++)
-	//		{
-	//			m2.at<float>(i, 0) = (m1.at<float>(i, 0) - _costfunction.groundtruthTorenderMinDistance[i]) / 0.2;
-	//		}
-	//		this->paramsOfhand.at<float>(index, 0) = save;
-	//	}
-	//	else
-	//	{
-	//		this->paramsOfhand.at<float>(index, 0) = save + 1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat1);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat1, _costfunction.groundtruthmat);
-
-	//		for (int i = 0; i < m1.rows; i++)
-	//		{
-	//			m1.at<float>(i, 0) = _costfunction.groundtruthTorenderMinDistance[i];
-	//		}
-
-	//		this->paramsOfhand.at<float>(index, 0) = save - 1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat2);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat2, _costfunction.groundtruthmat);
-
-	//		for (int i = 0; i < m2.rows; i++)
-	//		{
-	//			m2.at<float>(i, 0) = (m1.at<float>(i, 0) - _costfunction.groundtruthTorenderMinDistance[i]) / 2.0;
-	//		}
-	//		this->paramsOfhand.at<float>(index, 0) = save;
-	//		
-	//	}
-	//	this->MatToParams();
-	//}
-	//float ComputeJ_3(int index)
-	//{
-	//	this->ParamsToMat();
-	//	float gradient1, gradient2,gradient = 0;
-	//	float save = this->paramsOfhand.at<float>(index, 0);
-	//	if ((index == 0) || (index == 4) || (index == 8) || (index == 12) || (index == 16) || (index == 20))
-	//	{
-	//		this->paramsOfhand.at<float>(index, 0) = save + 0.1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat1);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat1, _costfunction.groundtruthmat);
-	//		gradient1 = _costfunction.distance_renderTogroundtruth;
-
-
-	//		this->paramsOfhand.at<float>(index, 0) = save - 0.1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat2);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat2, _costfunction.groundtruthmat);
-	//		gradient2 = _costfunction.distance_renderTogroundtruth;
-	//		gradient = (gradient1 - gradient2) / 0.2;
-
-	//		this->paramsOfhand.at<float>(index, 0) = save;
-	//	}
-	//	else
-	//	{
-	//		this->paramsOfhand.at<float>(index, 0) = save + 1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat1 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat1);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat1, _costfunction.groundtruthmat);
-	//		gradient1 = _costfunction.distance_renderTogroundtruth;
-
-
-	//		this->paramsOfhand.at<float>(index, 0) = save - 1;
-	//		this->MatToParams();
-	//		this->ControlHand();
-	//		cv::Mat generated_mat2 = cv::Mat::zeros(240, 320, CV_16UC1);;
-	//		projection->compute_current_orientation(model);
-	//		projection->project_3d_to_2d_(model, generated_mat2);
-	//		_costfunction.ComputeSilhouetteDifference(generated_mat2, _costfunction.groundtruthmat);
-	//		gradient2 = _costfunction.distance_renderTogroundtruth;
-	//		gradient = (gradient1 - gradient2) / 2;
-
-	//		this->paramsOfhand.at<float>(index, 0) = save;
-	//	}
-	//	this->MatToParams();
-	//	return gradient;
-	//}
-
-
 	//设置（手指，手掌）大小，位置，长度的边界，如果调整超过边界，则进行约束
 	void LimitedPalmScale()
 	{
@@ -1742,51 +1342,51 @@ public:
 static HandControl *_handcontrol = new HandControl();
 
 
-void func(double *p, double *x, int m, int n, void *data)
-{
-	//_handcontrol->SetParamOfHand(p);
-	//_handcontrol->MatToParams();
-	//_handcontrol->ControlHand();
-
-	_handcontrol->palm.Setpalmscale(p[0]);
-	_handcontrol->ControlHand();
-
-	SS::SubdivisionTheHand(model, 2);
-	cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);;
-	projection->compute_current_orientation(model);
-	projection->project_3d_to_2d_(model, generated_mat);
-	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
-
-
-	cv::Mat generated_BinaryMat = cv::Mat::zeros(240, 320, CV_64F);
-	for (int i = 0; i < generated_mat.rows; i++)
-	{
-		for (int j = 0; j < generated_mat.cols; j++)
-		{
-			if (generated_mat.at<ushort>(i, j) != 0)
-			{
-				generated_BinaryMat.at<double>(i, j) = 1;
-			}
-		}
-	}
-
-	//for (int i = 0; i < _cloudpoint.num_cloudpoint; i++)
-	//{
-	//	x[i * 3 + 0] = _cloudpoint.cloudpointTomesh_inscribePoint[i*3 + 0];
-	//	x[i * 3 + 1] = _cloudpoint.cloudpointTomesh_inscribePoint[i*3 + 1];
-	//	x[i * 3 + 2] = _cloudpoint.cloudpointTomesh_inscribePoint[i*3 + 2];
-	//}
-
-	cout << "!!!!!!!!!!!" << endl;
-	for (int i = 0; i <generated_BinaryMat.rows; i++)
-	{
-		for (int j = 0; j < generated_BinaryMat.cols; j++)
-		{
-			x[0*_cloudpoint.num_cloudpoint * 3 + generated_BinaryMat.cols*i + j] = generated_BinaryMat.at<double>(i, j);
-		}
-	}
-
-
-	_handcontrol->_costfunction.ComputeCostfunction(generated_mat);
-	
-}
+//void func(double *p, double *x, int m, int n, void *data)
+//{
+//	//_handcontrol->SetParamOfHand(p);
+//	//_handcontrol->MatToParams();
+//	//_handcontrol->ControlHand();
+//
+//	_handcontrol->palm.Setpalmscale(p[0]);
+//	_handcontrol->ControlHand();
+//
+//	SS::SubdivisionTheHand(model, 2);
+//	cv::Mat generated_mat = cv::Mat::zeros(240, 320, CV_16UC1);;
+//	projection->compute_current_orientation(model);
+//	projection->project_3d_to_2d_(model, generated_mat);
+//	_cloudpoint.Compute_Cloud_to_Mesh_Distance();
+//
+//
+//	cv::Mat generated_BinaryMat = cv::Mat::zeros(240, 320, CV_64F);
+//	for (int i = 0; i < generated_mat.rows; i++)
+//	{
+//		for (int j = 0; j < generated_mat.cols; j++)
+//		{
+//			if (generated_mat.at<ushort>(i, j) != 0)
+//			{
+//				generated_BinaryMat.at<double>(i, j) = 1;
+//			}
+//		}
+//	}
+//
+//	//for (int i = 0; i < _cloudpoint.num_cloudpoint; i++)
+//	//{
+//	//	x[i * 3 + 0] = _cloudpoint.cloudpointTomesh_inscribePoint[i*3 + 0];
+//	//	x[i * 3 + 1] = _cloudpoint.cloudpointTomesh_inscribePoint[i*3 + 1];
+//	//	x[i * 3 + 2] = _cloudpoint.cloudpointTomesh_inscribePoint[i*3 + 2];
+//	//}
+//
+//	cout << "!!!!!!!!!!!" << endl;
+//	for (int i = 0; i <generated_BinaryMat.rows; i++)
+//	{
+//		for (int j = 0; j < generated_BinaryMat.cols; j++)
+//		{
+//			x[0*_cloudpoint.num_cloudpoint * 3 + generated_BinaryMat.cols*i + j] = generated_BinaryMat.at<double>(i, j);
+//		}
+//	}
+//
+//
+//	_handcontrol->_costfunction.ComputeCostfunction(generated_mat);
+//	
+//}

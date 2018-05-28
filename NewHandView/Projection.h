@@ -36,10 +36,6 @@ int map_label[NUM_JOINT] = { 1,2,3,4,0,5,6,7,0,8,9,10,0,11,12,13,0,14,15,16,0,17
 class Projection {
 public:
 
-	int GroundTruthMatCenter_x;
-	int GroundTruthMatCenter_y;
-	int GroundTruthRoI_lenx;
-	int GroundTruthRoI_leny;
 
 	Projection(int height, int width, int num_joint, int num_pose,int RoI_lenx,int RoI_leny) {
 		depth_ = cv::Mat::zeros(height, width, CV_16UC1);
@@ -52,6 +48,8 @@ public:
 		RoI_part_ = cv::Mat::zeros(RoI_leny, RoI_lenx, CV_8UC1);
 		GroundTruthMatCenter_x = 0;
 		GroundTruthMatCenter_y = 0;
+		GroundTruthRoI_lenx = 0;
+		GroundTruthRoI_leny = 0;
 	}
 
 	~Projection() {}
@@ -483,6 +481,15 @@ public:
 
 		save_depth.copyTo(outputmat);
 	}
+
+
+	void SetGroundTruthMatInf(int centerx, int centery, int lenx, int leny)
+	{
+		this->GroundTruthMatCenter_x = centerx;
+		this->GroundTruthMatCenter_y = centery;
+		this->GroundTruthRoI_lenx = lenx;
+		this->GroundTruthRoI_leny = leny;
+	}
 private:
 	cv::Mat depth_;
 	cv::Mat orient_;
@@ -497,7 +504,10 @@ private:
 	Eigen::MatrixXi coloridx_;
 	Eigen::MatrixXd joint2d_;
 
-
+	int GroundTruthMatCenter_x;
+	int GroundTruthMatCenter_y;
+	int GroundTruthRoI_lenx;
+	int GroundTruthRoI_leny;
 };
 
 //static Projection *projection = new Projection(240, 320, 23, 28);
